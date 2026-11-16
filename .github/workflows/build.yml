@@ -1,0 +1,21 @@
+# Optional: builds a ready-made ArchiveWiki.dmg on GitHub's Apple-silicon runners.
+# Push this folder to a GitHub repo, then Actions → "Build ArchiveWiki" → Run workflow → download the artifact.
+name: Build ArchiveWiki
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+jobs:
+  build:
+    runs-on: macos-14   # Apple silicon
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./scripts/bundle.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ArchiveWiki-macOS-arm64
+          path: dist/ArchiveWiki.dmg
+      - if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/ArchiveWiki.dmg

@@ -1,0 +1,9 @@
+<?php
+// Seeded on first run by ArchiveWiki. Safe to edit; never overwritten.
+$conf['title']       = 'ArchiveWiki';
+$conf['lang']        = 'en';
+$conf['template']    = 'dokuwiki';
+$conf['useacl']      = 0;   // single-user desktop app, bound to 127.0.0.1 only
+$conf['userewrite']  = 0;   // plain doku.php?id=... URLs (no rewrite rules needed)
+$conf['updatecheck'] = 0;   // offline-first: no phoning home
+$conf['dnslookups']  = 0;

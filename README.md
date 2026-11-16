@@ -1,0 +1,64 @@
+# ArchiveWiki (Rust, macOS)
+
+A native shell around DokuWiki: a small Rust binary (tao + wry/WKWebView) that launches a
+**bundled static PHP** on a loopback port, serves DokuWiki from it, and shows it in a native window.
+No Electron, no Node, no system PHP, no network needed at runtime.
+
+## Easiest: double-click
+Double-click **Build ArchiveWiki.command**. It checks for Apple's command line tools and Rust (offering to install Rust),
+builds `dist/ArchiveWiki.app` + `dist/ArchiveWiki.dmg`, and offers to copy the app to /Applications.
+(If macOS blocks the .command because it was downloaded, right-click it → Open.)
+
+## Ready-made .dmg without building locally
+Push this folder to a GitHub repo; `.github/workflows/build.yml` builds the .dmg on an Apple-silicon runner
+(Actions → Build ArchiveWiki → Run workflow → download the artifact). Apps built this way are downloaded, so macOS
+will quarantine them: right-click → Open the first time, or run `xattr -dr com.apple.quarantine /Applications/ArchiveWiki.app`.
+Removing that prompt entirely needs an Apple Developer ID certificate and notarization (a paid Apple developer account).
+
+## Build manually (on the Mac)
+```bash
+xcode-select --install                                   # once
+curl https://sh.rustup.rs -sSf | sh                      # once, if Rust isn't installed
+./scripts/bundle.sh
+open "dist/ArchiveWiki.app"
+```
+Optional: put a 1024×1024 `assets/icon.png` in place before bundling for an app icon.
+DokuWiki comes from `vendor/dokuwiki.tar` (release "Mort" 2026-07-14c, requires PHP 8.2+). To use a different
+release, replace that tar (top folder `dokuwiki/`) and delete `resources/dokuwiki`; with no tar present the script downloads stable.
+Dev run: `./scripts/fetch-deps.sh && cargo run`.
+
+## How it works
+- `Contents/Resources/{php,dokuwiki}` ship inside the .app (pristine, read-only).
+- First launch copies DokuWiki to `~/Library/Application Support/ArchiveWiki/wiki/` and seeds
+  `conf/local.php` (ACL off, no update check, plain `doku.php?id=` URLs). **Your pages/media live in `wiki/data/`.**
+- Upgrades (new bundled DokuWiki version) overwrite program files but never existing files in `data/`.
+- PHP runs as `php -S 127.0.0.1:47631` (falls back to a free port) with 4 workers, behind `router.php`, which blocks
+  `data/ conf/ bin/ inc/ vendor/`, dotfiles, and non-loopback Host headers.
+- External links open in your default browser; downloads go to `~/Downloads`.
+- Menus: Edit (copy/paste), View (Home, Back/Forward, Reload), File (Print, **Back Up Wiki…** → zip in
+  `~/Documents/ArchiveWiki Backups/`, Show Wiki Folder).
+- Logs: `php-server.log` in the Application Support folder.
+
+## Updates
+- On launch (at most once per 24 h) ArchiveWiki checks DokuWiki's `stable` VERSION and the newest PHP patch release over HTTPS. Offline or failing checks are silent.
+- If a newer release exists you get a dialog: **Update / Later / Skip This Version**. Nothing happens without your click.
+- On Update: it downloads the official release, unpacks and verifies it, writes `~/Documents/ArchiveWiki Backups/pre-update-<version>-<time>.zip`
+  (data + conf), stops PHP, applies the files (never overwriting existing `data/` files, removing files listed in DokuWiki's
+  `deleted.files`), restarts and reloads. If applying fails, the previous program files are restored automatically.
+- **PHP** works the same way (dialog → confirm), but stays within your installed minor line (e.g. 8.3.x → 8.3.y), so DokuWiki
+  compatibility isn't put at risk. A running copy lives in `Application Support/ArchiveWiki/runtime/php`; the signed .app is never modified.
+  The new build must run, report the expected version and include every extension the current build has. After swapping it in, ArchiveWiki
+  restarts the server and confirms DokuWiki answers; if not, it switches back to the previous PHP (`php.prev`) automatically.
+  Moving to a new PHP *line* (e.g. 8.3 → 8.4) is deliberately manual: rebuild with `PHP_MINOR=8.4 ./scripts/bundle.sh`.
+- Only one update is applied at a time: if both are available, DokuWiki goes first and PHP is offered on the next check.
+- **ArchiveWiki → Check for Updates…** runs a check on demand; **Check for Updates Automatically** turns the launch check off/on.
+- Updates live in Application Support, so they persist; a rebuilt app with an older bundled DokuWiki or PHP will not downgrade them.
+- Installed plugins/templates are kept, but after a big release check them in Admin → Extension Manager for compatibility.
+- Downloads are protected by HTTPS only (neither download site is known to publish checksums for these builds), plus the sanity checks above.
+
+## Notes
+- Plugins/templates can be installed from the DokuWiki admin UI or by dropping them in `wiki/lib/plugins/`.
+- To enable logins/ACLs later: set `$conf['useacl']=1`, copy `conf/users.auth.php.dist` and `conf/acl.auth.php.dist`
+  to the non-`.dist` names, and add a user.
+- PHP: static-php-cli "common" build, 8.3 line (override with `PHP_MINOR`, `FLAVOR=bulk`, or `PHP_URL`).
+- The app is ad-hoc signed, which is fine for a locally built app. If you copy it to another Mac, right-click → Open.
