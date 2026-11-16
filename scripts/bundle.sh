@@ -40,7 +40,12 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 </dict></plist>
 PLIST
 
+codesign --force --sign - "$APP/Contents/Resources/php"   # sign the helper binary explicitly
 codesign --force --deep --sign - "$APP"
-hdiutil create -volname "ArchiveWiki" -srcfolder "$APP" -ov -format UDZO "dist/ArchiveWiki.dmg" >/dev/null
+# Disk image with the app plus a shortcut to /Applications, so the user can drag-and-drop to install
+STAGE=build/dmg; rm -rf "$STAGE"; mkdir -p "$STAGE"
+ditto "$APP" "$STAGE/ArchiveWiki.app"
+ln -s /Applications "$STAGE/Applications"
+hdiutil create -volname "ArchiveWiki" -srcfolder "$STAGE" -ov -format UDZO "dist/ArchiveWiki.dmg" >/dev/null
 echo "Built: $APP"
 echo "       dist/ArchiveWiki.dmg"
