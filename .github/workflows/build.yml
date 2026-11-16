@@ -1,5 +1,5 @@
 # Optional: builds a ready-made ArchiveWiki.dmg on GitHub's Apple-silicon runners.
-# Push this folder to a GitHub repo, then Actions → "Build ArchiveWiki" → Run workflow → download the artifact.
+# Actions → "Build ArchiveWiki" → Run workflow → download the artifact.
 name: Build ArchiveWiki
 on:
   workflow_dispatch:
@@ -7,10 +7,21 @@ on:
     tags: ["v*"]
 jobs:
   build:
-    runs-on: macos-latest   # Apple silicon
+    runs-on: macos-latest   # Apple silicon (arm64); tracks the current supported image
+    timeout-minutes: 40 # a hang fails with a log instead of lingering
     steps:
       - uses: actions/checkout@v4
-      - run: ./scripts/bundle.sh
+      - name: Show toolchain
+        run: |
+          uname -m
+          rustc --version
+          cargo --version
+      - name: 1 - Fetch DokuWiki and PHP
+        run: bash scripts/fetch-deps.sh
+      - name: 2 - Compile (Rust)
+        run: cargo build --release --verbose
+      - name: 3 - Bundle app and dmg
+        run: bash scripts/bundle.sh
       - uses: actions/upload-artifact@v4
         with:
           name: ArchiveWiki-macOS-arm64
