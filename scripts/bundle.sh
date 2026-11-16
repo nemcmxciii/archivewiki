@@ -2,7 +2,7 @@
 # Builds dist/ArchiveWiki.app (+ .dmg)
 set -euo pipefail
 cd "$(dirname "$0")/.."
-./scripts/fetch-deps.sh
+bash scripts/fetch-deps.sh
 cargo build --release
 
 APP="dist/ArchiveWiki.app"
