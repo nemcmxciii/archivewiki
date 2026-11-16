@@ -103,20 +103,27 @@ fn resource_dir() -> Result<PathBuf> {
 
 // ---------------------------------------------------------------- wiki files
 
+/// A binary copied out of a downloaded app can carry the "downloaded from the internet" flag and an
+/// invalid-for-this-location signature, and macOS then kills it on launch (SIGKILL). Clear the flag and
+/// re-sign it ad hoc, locally, so it runs like a binary you built yourself.
+fn prepare_binary(p: &Path) {
+    let _ = Command::new("/usr/bin/xattr").arg("-c").arg(p).status();
+    let _ = Command::new("/usr/bin/codesign").args(["--force", "--sign", "-"]).arg(p).status();
+}
+
 /// Keep a writable copy of PHP in Application Support so it can be updated without touching the signed .app.
-/// The bundled copy is only (re)installed on first run, or when it is newer than the installed one.
+/// The bundled copy is (re)installed on first run, when the installed copy won't run, or when it is newer.
 fn sync_php(bundled: &Path, installed: &Path) -> Result<()> {
     if !bundled.exists() {
         bail!("Bundled PHP missing at {}", bundled.display());
     }
-    let need = if !installed.exists() {
-        true
-    } else {
-        match (php_version(bundled).and_then(|v| parse_ver(&v)), php_version(installed).and_then(|v| parse_ver(&v))) {
+    let installed_ver = if installed.exists() { php_version(installed) } else { None };
+    let need = match installed_ver {
+        None => true, // missing, or present but won't start
+        Some(iv) => match (php_version(bundled).and_then(|v| parse_ver(&v)), parse_ver(&iv)) {
             (Some(b), Some(i)) => b > i,
-            (Some(_), None) => true, // installed copy is broken
             _ => false,
-        }
+        },
     };
     if need {
         if let Some(dir) = installed.parent() {
@@ -125,6 +132,10 @@ fn sync_php(bundled: &Path, installed: &Path) -> Result<()> {
         let _ = fs::remove_file(installed);
         fs::copy(bundled, installed).context("installing bundled PHP")?;
         fs::set_permissions(installed, fs::Permissions::from_mode(0o755))?;
+        prepare_binary(installed);
+        if php_version(installed).is_none() {
+            bail!("The bundled PHP could not be started on this Mac (macOS refused to run it).");
+        }
     }
     Ok(())
 }
@@ -973,3 +984,4 @@ fn main() {
         std::process::exit(1);
     }
 }
+
