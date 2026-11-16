@@ -34,7 +34,7 @@ const VERSION_URL: &str = "https://raw.githubusercontent.com/dokuwiki/dokuwiki/s
 const DOWNLOAD_URL: &str = "https://download.dokuwiki.org/src/dokuwiki/dokuwiki-stable.tgz";
 const CHECK_INTERVAL_SECS: u64 = 24 * 60 * 60;
 // Static PHP builds (same source scripts/fetch-deps.sh uses). Updates stay within the installed minor line (8.3.x).
-const PHP_BASE: &str = "https://dl.static-php.dev/static-php-cli/common";
+const PHP_BASE: &str = "https://dl.static-php.dev/static-php-cli/bulk";
 
 #[derive(Debug)]
 enum UserEvent {
