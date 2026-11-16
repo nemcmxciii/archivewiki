@@ -22,7 +22,7 @@ fi
 
 if [ ! -x "$RES/php" ]; then
   echo "==> static PHP"
-  FLAVOR="${FLAVOR:-common}"            # common | bulk (bulk has more extensions)
+  FLAVOR="${FLAVOR:-bulk}"            # common | bulk (bulk has more extensions)
   export PHP_MINOR="${PHP_MINOR:-8.3}"
   BASE="https://dl.static-php.dev/static-php-cli/$FLAVOR"
   if [ -z "${PHP_URL:-}" ]; then
