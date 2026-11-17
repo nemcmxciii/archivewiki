@@ -61,11 +61,13 @@ fi
 echo "==> sanity check"
 "$RES/php" -v | head -1
 FAIL=0
+MODS=$("$RES/php" -m)   # capture once: piping `php -m` into `grep -q` can die of SIGPIPE under pipefail and mis-report
+has() { grep -qi "^$1\$" <<<"$MODS"; }
 for m in xml dom mbstring zlib session pdo_sqlite sqlite3 ctype; do
-  if "$RES/php" -m | grep -qi "^$m$"; then echo "$m ok"; else echo "REQUIRED extension missing: $m"; FAIL=1; fi
+  if has "$m"; then echo "$m ok"; else echo "REQUIRED extension missing: $m"; FAIL=1; fi
 done
 for m in gd curl openssl intl; do
-  "$RES/php" -m | grep -qi "^$m$" && echo "$m ok" || echo "note: $m missing (optional)"
+  if has "$m"; then echo "$m ok"; else echo "note: $m missing (optional)"; fi
 done
 if [ "$FAIL" = "1" ]; then
   echo

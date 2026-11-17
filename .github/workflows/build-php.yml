@@ -39,8 +39,9 @@ jobs:
         run: |
           BIN=buildroot/bin/php
           $BIN -v
+          MODS=$($BIN -m)
           for m in pdo_sqlite sqlite3 dom xml mbstring zlib session gd curl openssl; do
-            $BIN -m | grep -qi "^$m$" || { echo "MISSING EXTENSION: $m"; exit 1; }
+            grep -qi "^$m\$" <<<"$MODS" || { echo "MISSING EXTENSION: $m"; exit 1; }
           done
           echo "VER=$($BIN -r 'echo PHP_VERSION;')" >> "$GITHUB_ENV"
       - name: Package
