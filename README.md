@@ -29,8 +29,8 @@ Dev run: `./scripts/fetch-deps.sh && cargo run`.
 
 ## How it works
 - `Contents/Resources/{php,dokuwiki}` ship inside the .app (pristine, read-only).
-- First launch copies DokuWiki to `~/Library/Application Support/ArchiveWiki/wiki/` and seeds
-  `conf/local.php` (ACL off, no update check, plain `doku.php?id=` URLs). **Your pages/media live in `wiki/data/`.**
+- First launch copies DokuWiki to `~/Library/Application Support/ArchiveWiki/wiki/` and opens
+  DokuWiki's own **setup wizard** (wiki name, admin account, ACL policy). After the wizard runs, ArchiveWiki removes `install.php` and adds offline defaults (no DokuWiki update check, plain `doku.php?id=` URLs) once. **Your pages/media live in `wiki/data/`.**
 - Upgrades (new bundled DokuWiki version) overwrite program files but never existing files in `data/`.
 - PHP runs as `php -S 127.0.0.1:47631` (falls back to a free port) with 4 workers, behind `router.php`, which blocks
   `data/ conf/ bin/ inc/ vendor/`, dotfiles, and non-loopback Host headers.

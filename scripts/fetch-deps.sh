@@ -16,7 +16,6 @@ if [ ! -f "$RES/dokuwiki/doku.php" ]; then
   fi
   rm -rf "$RES/dokuwiki"; mkdir -p "$RES/dokuwiki"
   tar -xf "$SRC" -C "$RES/dokuwiki" --strip-components=1 --no-same-owner
-  rm -f "$RES/dokuwiki/install.php"
   echo "    DokuWiki $(cat "$RES/dokuwiki/VERSION")"
 fi
 

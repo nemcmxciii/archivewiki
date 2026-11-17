@@ -27,7 +27,7 @@ const APP_NAME: &str = "ArchiveWiki";
 /// Fixed preferred port keeps the webview origin (cookies, localStorage) stable across launches.
 const PREFERRED_PORT: u16 = 47631;
 const ROUTER_PHP: &str = include_str!("router.php");
-const LOCAL_SEED: &str = include_str!("local.php.seed");
+const OFFLINE_DEFAULTS: &str = include_str!("local.php.seed");
 
 // Update source. VERSION on the stable branch is tiny and reliable; the tarball is the official release build.
 const VERSION_URL: &str = "https://raw.githubusercontent.com/dokuwiki/dokuwiki/stable/VERSION";
@@ -166,12 +166,37 @@ fn sync_wiki(bundle: &Path, wiki: &Path) -> Result<()> {
             apply_deleted_list(bundle, wiki);
         }
     }
-    let _ = fs::remove_file(wiki.join("install.php"));
-    let local = wiki.join("conf").join("local.php");
-    if !local.exists() {
-        fs::write(&local, LOCAL_SEED)?;
+    // First run: conf/local.php doesn't exist yet, so install.php is kept and ArchiveWiki opens DokuWiki's own
+    // setup wizard (wiki name, admin account, ACL policy). Once the wizard has written local.php, DokuWiki asks
+    // for install.php to be removed, so we do that and add our offline defaults (once).
+    if wiki.join("conf").join("local.php").exists() {
+        let _ = fs::remove_file(wiki.join("install.php"));
+        apply_offline_defaults(wiki);
     }
     Ok(())
+}
+
+fn apply_offline_defaults(wiki: &Path) {
+    let marker = wiki.join(".archivewiki-defaults");
+    if marker.exists() {
+        return;
+    }
+    let local = wiki.join("conf").join("local.php");
+    let Ok(txt) = fs::read_to_string(&local) else { return };
+    let t = txt.trim_end();
+    let t = t.strip_suffix("?>").unwrap_or(t).trim_end();
+    if fs::write(&local, format!("{t}\n{OFFLINE_DEFAULTS}")).is_ok() {
+        let _ = fs::write(&marker, "1");
+    }
+}
+
+/// Setup wizard until DokuWiki has been configured, the wiki itself afterwards.
+fn start_url(l: &Layout, origin: &str) -> String {
+    if l.wiki.join("conf").join("local.php").exists() {
+        format!("{origin}/doku.php")
+    } else {
+        format!("{origin}/install.php")
+    }
 }
 
 /// Overlay src onto dst. Existing files under data/ are never overwritten.
@@ -835,7 +860,6 @@ fn run() -> Result<()> {
     wait_ready(port, &mut server.child)?;
 
     let origin = format!("http://127.0.0.1:{port}");
-    let home = format!("{origin}/doku.php");
 
     let event_loop = EventLoopBuilder::<UserEvent>::with_user_event().build();
     let menu_proxy = event_loop.create_proxy();
@@ -853,7 +877,7 @@ fn run() -> Result<()> {
 
     let nav_origin = origin.clone();
     let webview = WebViewBuilder::new()
-        .with_url(&home)
+        .with_url(&start_url(&layout, &origin))
         .with_navigation_handler(move |u: String| {
             if u.starts_with(&nav_origin) || u.starts_with("about:") || u.starts_with("blob:") || u.starts_with("data:") {
                 true
@@ -909,7 +933,7 @@ fn run() -> Result<()> {
                         return;
                     }
                 }
-                let _ = webview.load_url(&home);
+                let _ = webview.load_url(&start_url(&layout, &origin));
                 thread::spawn(move || match res {
                     Ok(()) => info(&format!(
                         "Updated to DokuWiki {version}.\n\nA pre-update backup is in Documents/ArchiveWiki Backups."
@@ -943,14 +967,14 @@ fn run() -> Result<()> {
                 if let Some(s) = new_server {
                     server = s;
                 }
-                let _ = webview.load_url(&home);
+                let _ = webview.load_url(&start_url(&layout, &origin));
                 thread::spawn(move || match result {
                     Ok(()) => info(&format!("Updated to PHP {version}.")),
                     Err(e) => alert(&format!("The PHP update didn't work, so the previous version was restored.\n\n{e:#}")),
                 });
             }
             Event::UserEvent(UserEvent::Menu(ev)) => match ev.id.0.as_str() {
-                "home" => { let _ = webview.load_url(&home); }
+                "home" => { let _ = webview.load_url(&start_url(&layout, &origin)); }
                 "back" => { let _ = webview.evaluate_script("history.back()"); }
                 "forward" => { let _ = webview.evaluate_script("history.forward()"); }
                 "reload" => { let _ = webview.evaluate_script("location.reload()"); }
