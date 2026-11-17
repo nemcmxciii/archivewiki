@@ -39,6 +39,26 @@ Dev run: `./scripts/fetch-deps.sh && cargo run`.
   `~/Documents/ArchiveWiki Backups/`, Show Wiki Folder).
 - Logs: `php-server.log` in the Application Support folder.
 
+## Backups
+- **Automatic:** once a day while the app is open (first check shortly after launch), ArchiveWiki saves `data/` and `conf/` to
+  `~/Documents/ArchiveWiki Backups/auto-backup-<time>.zip` and keeps the newest 10. Toggle: File → *Back Up Automatically (Daily)*.
+  Manual backups (*Back Up Wiki…*) and the safety backups made before updates/restores are never deleted automatically.
+- **Restore:** File → *Restore from Backup…* lets you pick a zip made by this app. It checks the file, asks you to confirm, saves
+  your current wiki as a `pre-restore` backup, swaps the data in, and restarts the server. If unpacking fails, the previous data is put back.
+  (The data that was replaced is also kept in `Application Support/ArchiveWiki/restore-previous/` until the next restore.)
+- Backups are plain zips on your own disk; turn on FileVault if you want them encrypted at rest.
+
+## Private local address
+The wiki server only listens on 127.0.0.1, and each launch generates a random secret. The app window presents it once, receives
+a session cookie, and every other request without that cookie (another app, a browser tab, a web page) gets "Forbidden".
+This is a guard against other software on your Mac reaching the wiki, not against someone who has full access to your account.
+
+## Starter structure
+On first run (or the first launch after updating to this version) ArchiveWiki adds, only where nothing exists yet: a start page and
+sidebar; Inbox, Journal, People, Records (residential / employment / credentials tables), Field Manual and Reference sections;
+page templates for People and Journal (new pages in those sections start from them); and a friendlier "page not found" message.
+Edit or delete any of it freely: nothing is recreated or overwritten afterwards.
+
 ## Branding
 The ArchiveWiki logo (disc + wordmark) replaces DokuWiki's header logo, and the disc replaces the browser-tab icon (`data/media/wiki/logo.png`, `favicon.ico`,
 `apple-touch-icon.png`, plus a small rule in `conf/userstyle.css`). It is installed once and never overwrites files you

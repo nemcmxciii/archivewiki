@@ -1,0 +1,12 @@
+====== ArchiveWiki ======
+
+Your private archive. Everything here is stored on this Mac.
+
+  * [[inbox:start|Inbox]] — quick notes to sort later
+  * [[journal:start|Journal]] — dated entries
+  * [[people:start|People]] — family and research subjects
+  * [[records:start|Records]] — residential, employment and credentials history
+  * [[fieldmanual:start|Field Manual]] — procedures and reference material
+  * [[reference:start|Reference]] — sources, links and documents
+
+To add a page, link to it (for example ''%%[[people:jane_doe]]%%''), then click the link and choose **Create this page**.

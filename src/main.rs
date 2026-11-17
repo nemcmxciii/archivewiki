@@ -38,6 +38,29 @@ const TOUCH_ICON_PNG: &[u8] = include_bytes!("../assets/branding/apple-touch-ico
 const BRANDING_VERSION: u32 = 2;
 const BRANDING_CSS: &str = "\n/* ArchiveWiki branding v2: the logo image includes the wordmark */\n#dokuwiki__header .logo img { height: 64px; width: auto; }\n#dokuwiki__header .logo span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }\n";
 
+// Starter structure, installed once into the wiki; only files that don't exist yet are written.
+const STARTER_VERSION: u32 = 1;
+const STARTER: &[(&str, &str)] = &[
+    ("data/pages/start.txt", include_str!("starter/start.txt")),
+    ("data/pages/sidebar.txt", include_str!("starter/sidebar.txt")),
+    ("data/pages/inbox/start.txt", include_str!("starter/inbox_start.txt")),
+    ("data/pages/journal/start.txt", include_str!("starter/journal_start.txt")),
+    ("data/pages/journal/_template.txt", include_str!("starter/journal_template.txt")),
+    ("data/pages/people/start.txt", include_str!("starter/people_start.txt")),
+    ("data/pages/people/_template.txt", include_str!("starter/people_template.txt")),
+    ("data/pages/records/start.txt", include_str!("starter/records_start.txt")),
+    ("data/pages/records/residential.txt", include_str!("starter/records_residential.txt")),
+    ("data/pages/records/employment.txt", include_str!("starter/records_employment.txt")),
+    ("data/pages/records/credentials.txt", include_str!("starter/records_credentials.txt")),
+    ("data/pages/fieldmanual/start.txt", include_str!("starter/fieldmanual_start.txt")),
+    ("data/pages/reference/start.txt", include_str!("starter/reference_start.txt")),
+    ("conf/lang/en/newpage.txt", include_str!("starter/newpage.txt")),
+];
+
+// Automatic backups: at most one per day, the newest N are kept.
+const AUTO_BACKUP_INTERVAL_SECS: u64 = 24 * 60 * 60;
+const AUTO_BACKUP_KEEP: usize = 10;
+
 // Update source. VERSION on the stable branch is tiny and reliable; the tarball is the official release build.
 const VERSION_URL: &str = "https://raw.githubusercontent.com/dokuwiki/dokuwiki/stable/VERSION";
 const DOWNLOAD_URL: &str = "https://download.dokuwiki.org/src/dokuwiki/dokuwiki-stable.tgz";
@@ -57,6 +80,8 @@ fn php_download_url(ver: &str) -> String {
 #[derive(Debug)]
 enum UserEvent {
     Menu(MenuEvent),
+    /// The user chose a backup zip to restore (already validated and confirmed).
+    RestoreBackup { zip: PathBuf },
     /// A verified PHP build has been downloaded; main thread swaps it in (with automatic rollback).
     ApplyPhp { staged: PathBuf, version: String },
     /// A verified update has been downloaded + backed up; main thread applies it.
@@ -76,6 +101,7 @@ struct Layout {
     updates: PathBuf,
     rollback: PathBuf,
     support: PathBuf,
+    token: String, // per-launch secret: only the app window can talk to the local wiki server
 }
 
 impl Layout {
@@ -97,6 +123,7 @@ impl Layout {
             updates: support.join("updates"),
             rollback: support.join("wiki-rollback"),
             support,
+            token: random_token(),
         })
     }
 }
@@ -176,6 +203,7 @@ fn sync_wiki(bundle: &Path, wiki: &Path) -> Result<()> {
         }
     }
     install_branding(wiki);
+    install_starter(wiki);
 
     // First run: conf/local.php doesn't exist yet, so install.php is kept and ArchiveWiki opens DokuWiki's own
     // setup wizard (wiki name, admin account, ACL policy). Once the wizard has written local.php, DokuWiki asks
@@ -231,12 +259,49 @@ fn apply_offline_defaults(wiki: &Path) {
     }
 }
 
+fn random_token() -> String {
+    use std::io::Read;
+    let mut buf = [0u8; 16];
+    if let Ok(mut f) = fs::File::open("/dev/urandom") {
+        let _ = f.read_exact(&mut buf);
+    }
+    let nanos = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).map(|d| d.subsec_nanos()).unwrap_or(0);
+    for (i, b) in buf.iter_mut().enumerate() {
+        *b ^= (nanos >> ((i % 4) * 8)) as u8;
+    }
+    buf.iter().map(|b| format!("{b:02x}")).collect()
+}
+
+/// Starter pages, namespace templates and the friendly "page not found" text. Existing files are never touched,
+/// so anything you wrote or changed stays as it is; files you delete are not recreated.
+fn install_starter(wiki: &Path) {
+    let marker = wiki.join(".archivewiki-starter");
+    let have = fs::read_to_string(&marker).ok().and_then(|t| t.trim().parse::<u32>().ok()).unwrap_or(0);
+    if have >= STARTER_VERSION {
+        return;
+    }
+    for (rel, content) in STARTER {
+        let p = wiki.join(rel);
+        if p.exists() {
+            continue;
+        }
+        if let Some(dir) = p.parent() {
+            if fs::create_dir_all(dir).is_err() {
+                continue;
+            }
+        }
+        let _ = fs::write(&p, content);
+    }
+    let _ = fs::write(&marker, STARTER_VERSION.to_string());
+}
+
 /// Setup wizard until DokuWiki has been configured, the wiki itself afterwards.
 fn start_url(l: &Layout, origin: &str) -> String {
+    // The secret in the first URL makes the server set a session cookie for this window (see router.php).
     if l.wiki.join("conf").join("local.php").exists() {
-        format!("{origin}/doku.php")
+        format!("{origin}/doku.php?aw={}", l.token)
     } else {
-        format!("{origin}/install.php")
+        format!("{origin}/install.php?aw={}", l.token)
     }
 }
 
@@ -576,9 +641,10 @@ fn restore_php(l: &Layout) {
     }
 }
 
-fn healthy(port: u16) -> bool {
+fn healthy(port: u16, token: &str) -> bool {
     Command::new("/usr/bin/curl")
-        .args(["-fsS", "-o", "/dev/null", "-m", "15"])
+        .args(["-fsS", "-o", "/dev/null", "-m", "15", "-H"])
+        .arg(format!("Cookie: aw_session={token}"))
         .arg(format!("http://127.0.0.1:{port}/doku.php"))
         .status()
         .map(|s| s.success())
@@ -589,7 +655,7 @@ fn healthy(port: u16) -> bool {
 fn start_checked(l: &Layout, port: u16) -> Result<Server> {
     let mut s = Server::start(l, port)?;
     wait_ready(port, &mut s.child)?;
-    if !healthy(port) {
+    if !healthy(port, &l.token) {
         bail!("The wiki did not respond after the restart.");
     }
     Ok(s)
@@ -674,6 +740,7 @@ impl Server {
             .arg("-t")
             .arg(&l.wiki)
             .arg(&l.router)
+            .env("ARCHIVEWIKI_TOKEN", &l.token)
             .env("PHP_CLI_SERVER_WORKERS", "4") // DokuWiki fires parallel css/js/fetch requests
             .current_dir(&l.wiki)
             .stdin(Stdio::null())
@@ -784,10 +851,12 @@ fn unique_path(p: PathBuf) -> PathBuf {
     p
 }
 
+fn backup_dir() -> Result<PathBuf> {
+    Ok(dirs::document_dir().ok_or_else(|| anyhow!("Cannot locate ~/Documents"))?.join("ArchiveWiki Backups"))
+}
+
 fn backup(l: &Layout, prefix: &str) -> Result<PathBuf> {
-    let dir = dirs::document_dir()
-        .ok_or_else(|| anyhow!("Cannot locate ~/Documents"))?
-        .join("ArchiveWiki Backups");
+    let dir = backup_dir()?;
     fs::create_dir_all(&dir)?;
     let ts = Command::new("date").arg("+%Y%m%d-%H%M%S").output()?;
     let ts = String::from_utf8_lossy(&ts.stdout).trim().to_string();
@@ -802,6 +871,127 @@ fn backup(l: &Layout, prefix: &str) -> Result<PathBuf> {
         bail!("zip exited with {st}");
     }
     Ok(out)
+}
+
+fn auto_backup_enabled(l: &Layout) -> bool {
+    !l.support.join("backup-auto-off").exists()
+}
+
+fn auto_backup_due(l: &Layout) -> bool {
+    fs::read_to_string(l.support.join("last-auto-backup"))
+        .ok()
+        .and_then(|s| s.trim().parse::<u64>().ok())
+        .map(|t| now_secs().saturating_sub(t) >= AUTO_BACKUP_INTERVAL_SECS)
+        .unwrap_or(true)
+}
+
+/// Keep only the newest `keep` automatic backups (manual and pre-update/pre-restore backups are never deleted).
+fn prune_auto_backups(keep: usize) {
+    let Ok(dir) = backup_dir() else { return };
+    let Ok(rd) = fs::read_dir(&dir) else { return };
+    let mut files: Vec<PathBuf> = rd
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| {
+            p.file_name()
+                .and_then(|n| n.to_str())
+                .map(|n| n.starts_with("auto-backup-") && n.ends_with(".zip"))
+                .unwrap_or(false)
+        })
+        .collect();
+    files.sort(); // timestamps in the names sort oldest-first
+    if files.len() > keep {
+        for old in &files[..files.len() - keep] {
+            let _ = fs::remove_file(old);
+        }
+    }
+}
+
+/// Background loop: one automatic backup per day while the app is open (first check 45 s after launch).
+fn auto_backup_loop(l: Layout) {
+    thread::sleep(Duration::from_secs(45));
+    loop {
+        if auto_backup_enabled(&l) && auto_backup_due(&l) && backup(&l, "auto-backup").is_ok() {
+            let _ = fs::write(l.support.join("last-auto-backup"), now_secs().to_string());
+            prune_auto_backups(AUTO_BACKUP_KEEP);
+        }
+        thread::sleep(Duration::from_secs(60 * 60));
+    }
+}
+
+/// Background thread: let the user pick a backup, validate it, confirm, then hand it to the main thread.
+fn restore_flow(proxy: &EventLoopProxy<UserEvent>) {
+    let start = backup_dir().ok().filter(|d| d.exists()).map(|d| d.to_string_lossy().into_owned());
+    let loc = start.map(|d| format!(" default location (POSIX file \"{}\")", esc(&d))).unwrap_or_default();
+    let script = format!("POSIX path of (choose file with prompt \"Choose a backup to restore\" of type {{\"zip\"}}{loc})");
+    let Ok(out) = Command::new("osascript").args(["-e", &script]).output() else { return };
+    if !out.status.success() {
+        return; // cancelled
+    }
+    let zip = PathBuf::from(String::from_utf8_lossy(&out.stdout).trim());
+    if let Err(e) = validate_backup_zip(&zip) {
+        alert(&format!("That file can't be restored.\n\n{e:#}"));
+        return;
+    }
+    let name = zip.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+    let msg = format!(
+        "Restore \"{name}\"?\n\nYour current wiki is saved first (a pre-restore backup), then replaced by this backup. Pages created since the backup was made will be removed from the wiki."
+    );
+    let script = format!(
+        "display dialog \"{}\" with title \"{APP_NAME}\" buttons {{\"Cancel\", \"Restore\"}} default button \"Cancel\" cancel button \"Cancel\" with icon caution",
+        esc(&msg)
+    );
+    if let Ok(o) = Command::new("osascript").args(["-e", &script]).output() {
+        if o.status.success() && String::from_utf8_lossy(&o.stdout).contains("Restore") {
+            let _ = proxy.send_event(UserEvent::RestoreBackup { zip });
+        }
+    }
+}
+
+/// Only zips made by this app (entries under data/ and conf/, no odd paths) are accepted.
+fn validate_backup_zip(zip: &Path) -> Result<()> {
+    let out = Command::new("/usr/bin/unzip").arg("-Z1").arg(zip).output()?;
+    if !out.status.success() {
+        bail!("It isn't a readable zip file.");
+    }
+    let list = String::from_utf8_lossy(&out.stdout);
+    let mut has_data = false;
+    for name in list.lines() {
+        if name.contains("..") || name.starts_with('/') || !(name.starts_with("data/") || name.starts_with("conf/")) {
+            bail!("It doesn't look like an ArchiveWiki backup (unexpected entry: {name}).");
+        }
+        if name.starts_with("data/") {
+            has_data = true;
+        }
+    }
+    if !has_data {
+        bail!("It doesn't contain any wiki data.");
+    }
+    Ok(())
+}
+
+/// Main thread, server stopped. Saves the current wiki first; on failure puts the previous data back.
+fn restore_backup(l: &Layout, zip: &Path) -> Result<()> {
+    let safety = backup(l, "pre-restore").context("could not save your current wiki first")?;
+    let trash = l.support.join("restore-previous");
+    let _ = fs::remove_dir_all(&trash);
+    fs::create_dir_all(&trash)?;
+    let data = l.wiki.join("data");
+    if data.exists() {
+        fs::rename(&data, trash.join("data")).context("could not set aside the current data")?;
+    }
+    let st = Command::new("/usr/bin/unzip").arg("-oq").arg(zip).arg("-d").arg(&l.wiki).status();
+    let ok = matches!(&st, Ok(s) if s.success());
+    if !ok {
+        let _ = fs::remove_dir_all(&data);
+        let _ = fs::rename(trash.join("data"), &data);
+        let _ = Command::new("/usr/bin/unzip").arg("-oq").arg(&safety).arg("-x").arg("data/*").arg("-d").arg(&l.wiki).status();
+        bail!("The backup could not be unpacked. Your previous wiki was kept.");
+    }
+    for d in ["cache", "tmp", "locks", "log", "index", "meta", "attic", "media", "media_attic", "media_meta", "pages"] {
+        let _ = fs::create_dir_all(data.join(d));
+    }
+    Ok(())
 }
 
 fn esc(s: &str) -> String {
@@ -828,11 +1018,12 @@ fn info(msg: &str) {
     dialog(msg, "note");
 }
 
-fn build_menu(auto_check: bool) -> Result<(Menu, CheckMenuItem)> {
+fn build_menu(auto_check: bool, auto_backup: bool) -> Result<(Menu, CheckMenuItem, CheckMenuItem)> {
     let acc = |m: Modifiers, c: Code| Some(Accelerator::new(Some(m), c));
     let menu = Menu::new();
 
     let auto_item = CheckMenuItem::with_id("autocheck", "Check for Updates Automatically", true, auto_check, None);
+    let backup_item = CheckMenuItem::with_id("autobackup", "Back Up Automatically (Daily)", true, auto_backup, None);
     let app = Submenu::new(APP_NAME, true);
     app.append_items(&[
         &PredefinedMenuItem::about(None, None),
@@ -853,6 +1044,8 @@ fn build_menu(auto_check: bool) -> Result<(Menu, CheckMenuItem)> {
     file.append_items(&[
         &MenuItem::with_id("print", "Print…", true, acc(Modifiers::SUPER, Code::KeyP)),
         &MenuItem::with_id("backup", "Back Up Wiki…", true, acc(Modifiers::SUPER | Modifiers::SHIFT, Code::KeyB)),
+        &backup_item,
+        &MenuItem::with_id("restore", "Restore from Backup…", true, None),
         &MenuItem::with_id("folder", "Show Wiki Folder in Finder", true, None),
         &PredefinedMenuItem::separator(),
         &PredefinedMenuItem::close_window(None),
@@ -884,7 +1077,7 @@ fn build_menu(auto_check: bool) -> Result<(Menu, CheckMenuItem)> {
     window.append_items(&[&PredefinedMenuItem::minimize(None), &PredefinedMenuItem::maximize(None)])?;
 
     menu.append_items(&[&app, &file, &edit, &view, &window])?;
-    Ok((menu, auto_item))
+    Ok((menu, auto_item, backup_item))
 }
 
 // ---------------------------------------------------------------- main
@@ -908,7 +1101,7 @@ fn run() -> Result<()> {
     MenuEvent::set_event_handler(Some(move |e| {
         let _ = menu_proxy.send_event(UserEvent::Menu(e));
     }));
-    let (menu, auto_item) = build_menu(auto_check_enabled(&layout))?;
+    let (menu, auto_item, backup_item) = build_menu(auto_check_enabled(&layout), auto_backup_enabled(&layout))?;
 
     let window = WindowBuilder::new()
         .with_title(APP_NAME)
@@ -946,6 +1139,10 @@ fn run() -> Result<()> {
         match event {
             Event::NewEvents(StartCause::Init) => {
                 menu.init_for_nsapp();
+                {
+                    let l = layout.clone();
+                    thread::spawn(move || auto_backup_loop(l));
+                }
                 if auto_check_enabled(&layout) && check_due(&layout) {
                     let (l, p) = (layout.clone(), update_proxy.clone());
                     thread::spawn(move || {
@@ -1014,6 +1211,23 @@ fn run() -> Result<()> {
                     Err(e) => alert(&format!("The PHP update didn't work, so the previous version was restored.\n\n{e:#}")),
                 });
             }
+            Event::UserEvent(UserEvent::RestoreBackup { zip }) => {
+                server.stop();
+                let res = restore_backup(&layout, &zip);
+                match start_checked(&layout, port) {
+                    Ok(s) => server = s,
+                    Err(e) => {
+                        alert(&format!("Could not restart the wiki server: {e:#}"));
+                        *control_flow = ControlFlow::Exit;
+                        return;
+                    }
+                }
+                let _ = webview.load_url(&start_url(&layout, &origin));
+                thread::spawn(move || match res {
+                    Ok(()) => info("Backup restored. Your previous wiki was saved as a pre-restore backup in Documents/ArchiveWiki Backups."),
+                    Err(e) => alert(&format!("The restore didn't complete.\n\n{e:#}")),
+                });
+            }
             Event::UserEvent(UserEvent::Menu(ev)) => match ev.id.0.as_str() {
                 "home" => { let _ = webview.load_url(&start_url(&layout, &origin)); }
                 "back" => { let _ = webview.evaluate_script("history.back()"); }
@@ -1027,6 +1241,20 @@ fn run() -> Result<()> {
                         Ok(p) => { let _ = Command::new("open").arg("-R").arg(p).spawn(); }
                         Err(e) => alert(&format!("Backup failed: {e:#}")),
                     });
+                }
+                "restore" => {
+                    let p = update_proxy.clone();
+                    thread::spawn(move || restore_flow(&p));
+                }
+                "autobackup" => {
+                    let flag = layout.support.join("backup-auto-off");
+                    if flag.exists() {
+                        let _ = fs::remove_file(&flag);
+                        backup_item.set_checked(true);
+                    } else {
+                        let _ = fs::write(&flag, "");
+                        backup_item.set_checked(false);
+                    }
                 }
                 "checkupdate" => {
                     let (l, p) = (layout.clone(), update_proxy.clone());
