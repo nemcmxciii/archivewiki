@@ -39,6 +39,12 @@ Dev run: `./scripts/fetch-deps.sh && cargo run`.
   `~/Documents/ArchiveWiki Backups/`, Show Wiki Folder).
 - Logs: `php-server.log` in the Application Support folder.
 
+## Branding
+The ArchiveWiki logo (disc + wordmark) replaces DokuWiki's header logo, and the disc replaces the browser-tab icon (`data/media/wiki/logo.png`, `favicon.ico`,
+`apple-touch-icon.png`, plus a small rule in `conf/userstyle.css`). It is installed once and never overwrites files you
+already have there. The wordmark is part of the logo image, so the wiki title text is hidden visually (kept for screen readers); delete the `ArchiveWiki branding v2` rule in `conf/userstyle.css` to show the title text again. To use a different logo, upload your own `wiki:logo.png` (or `.svg`) in DokuWiki's media manager.
+The app icon comes from `assets/icon.png`; the wiki branding files are in `assets/branding/`.
+
 ## Updates
 - On launch (at most once per 24 h) ArchiveWiki checks DokuWiki's `stable` VERSION and the newest PHP patch release over HTTPS. Offline or failing checks are silent.
 - If a newer release exists you get a dialog: **Update / Later / Skip This Version**. Nothing happens without your click.

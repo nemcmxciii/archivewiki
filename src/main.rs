@@ -29,6 +29,15 @@ const PREFERRED_PORT: u16 = 47631;
 const ROUTER_PHP: &str = include_str!("router.php");
 const OFFLINE_DEFAULTS: &str = include_str!("local.php.seed");
 
+// Wiki branding (replaces DokuWiki's own header logo / favicon). Installed once, never overwrites your own files.
+const LOGO_PNG: &[u8] = include_bytes!("../assets/branding/logo.png");
+const FAVICON_ICO: &[u8] = include_bytes!("../assets/branding/favicon.ico");
+const TOUCH_ICON_PNG: &[u8] = include_bytes!("../assets/branding/apple-touch-icon.png");
+// logo.png is wide (disc + "ArchiveWiki" wordmark, 2x for Retina). DokuWiki would draw it at native size, so
+// this rule shows it 64px high, and keeps the wiki title text only for screen readers (the wordmark replaces it).
+const BRANDING_VERSION: u32 = 2;
+const BRANDING_CSS: &str = "\n/* ArchiveWiki branding v2: the logo image includes the wordmark */\n#dokuwiki__header .logo img { height: 64px; width: auto; }\n#dokuwiki__header .logo span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }\n";
+
 // Update source. VERSION on the stable branch is tiny and reliable; the tarball is the official release build.
 const VERSION_URL: &str = "https://raw.githubusercontent.com/dokuwiki/dokuwiki/stable/VERSION";
 const DOWNLOAD_URL: &str = "https://download.dokuwiki.org/src/dokuwiki/dokuwiki-stable.tgz";
@@ -166,6 +175,8 @@ fn sync_wiki(bundle: &Path, wiki: &Path) -> Result<()> {
             apply_deleted_list(bundle, wiki);
         }
     }
+    install_branding(wiki);
+
     // First run: conf/local.php doesn't exist yet, so install.php is kept and ArchiveWiki opens DokuWiki's own
     // setup wizard (wiki name, admin account, ACL policy). Once the wizard has written local.php, DokuWiki asks
     // for install.php to be removed, so we do that and add our offline defaults (once).
@@ -174,6 +185,36 @@ fn sync_wiki(bundle: &Path, wiki: &Path) -> Result<()> {
         apply_offline_defaults(wiki);
     }
     Ok(())
+}
+
+/// Put the ArchiveWiki logo/favicon where DokuWiki's template looks for them (data/media/wiki/logo.png,
+/// favicon.ico, apple-touch-icon.png). A logo you uploaded yourself is never overwritten; only a logo
+/// this app installed earlier (branding v1) is upgraded.
+fn install_branding(wiki: &Path) {
+    let marker = wiki.join(".archivewiki-branding");
+    let have = fs::read_to_string(&marker).ok().and_then(|t| t.trim().parse::<u32>().ok()).unwrap_or(0);
+    if have >= BRANDING_VERSION {
+        return;
+    }
+    let dir = wiki.join("data").join("media").join("wiki");
+    if fs::create_dir_all(&dir).is_err() {
+        return;
+    }
+    let logo = dir.join("logo.png");
+    if have >= 1 || !logo.exists() {
+        let _ = fs::write(&logo, LOGO_PNG);
+    }
+    for (name, bytes) in [("favicon.ico", FAVICON_ICO), ("apple-touch-icon.png", TOUCH_ICON_PNG)] {
+        let p = dir.join(name);
+        if !p.exists() {
+            let _ = fs::write(&p, bytes);
+        }
+    }
+    let css = wiki.join("conf").join("userstyle.css");
+    let _ = fs::create_dir_all(wiki.join("conf"));
+    let existing = fs::read_to_string(&css).unwrap_or_default();
+    let _ = fs::write(&css, format!("{existing}{BRANDING_CSS}"));
+    let _ = fs::write(&marker, BRANDING_VERSION.to_string());
 }
 
 fn apply_offline_defaults(wiki: &Path) {
