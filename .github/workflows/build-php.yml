@@ -15,6 +15,11 @@ jobs:
   php:
     runs-on: macos-latest   # Apple silicon
     timeout-minutes: 120
+    env:
+      # Lets spc call GitHub's API with a token. Without it the shared runner gets HTTP 403 (rate limit)
+      # and some source downloads (e.g. openssl) fail.
+      GITHUB_TOKEN: ${{ github.token }}
+      SPC_DOWNLOAD_RETRIES: "3"
     steps:
       - name: Install build tools (so spc's doctor has nothing to download)
         run: |
