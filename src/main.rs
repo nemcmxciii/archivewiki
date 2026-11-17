@@ -38,7 +38,7 @@ const CHECK_INTERVAL_SECS: u64 = 24 * 60 * 60;
 const PHP_REPO: &str = "nemcmxciii/archivewiki";
 
 fn php_list_url() -> String {
-    format!("https://api.github.com/repos/{PHP_REPO}/releases?per_page=30")
+    format!("https://github.com/{PHP_REPO}/releases.atom")
 }
 
 fn php_download_url(ver: &str) -> String {
@@ -375,15 +375,13 @@ fn check_dokuwiki(l: &Layout, proxy: &EventLoopProxy<UserEvent>, manual: bool) -
     }
 }
 
-/// Newest `php-X.Y.Z-cli-macos-aarch64.tar.gz` in the directory listing for the given major.minor line.
+/// Newest `php-X.Y.Z` release tag in the feed text for the given major.minor line.
 fn latest_php_in_line(listing: &str, major: u32, minor: u32) -> Option<String> {
-    let suffix = "-cli-macos-aarch64.tar.gz";
     let mut best: Option<(u32, u32, u32)> = None;
     for (i, _) in listing.match_indices("php-") {
-        let rest = &listing[i + 4..];
-        let Some(end) = rest.find(suffix) else { continue };
-        let seg = &rest[..end];
-        if !seg.chars().all(|c| c.is_ascii_digit() || c == '.') {
+        let raw: String = listing[i + 4..].chars().take_while(|c| c.is_ascii_digit() || *c == '.').collect();
+        let seg = raw.trim_end_matches('.');
+        if seg.split('.').count() != 3 {
             continue;
         }
         if let Some(v) = parse_ver(seg) {

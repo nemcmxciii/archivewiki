@@ -62,5 +62,5 @@ Dev run: `./scripts/fetch-deps.sh && cargo run`.
   to the non-`.dist` names, and add a user.
 - PHP: a static build made by the **Build PHP** workflow (static-php-cli, 8.3 line, includes `pdo_sqlite` for the sqlite/struct plugins).
   Run Actions → "Build PHP" once before the first "Build ArchiveWiki"; the build script downloads it from this repo's Releases
-  (override with `PHP_URL`, `PHP_MINOR`, or `ARCHIVEWIKI_REPO`). The repo must be public for those downloads and for the in-app PHP updater.
+  (override with `PHP_URL`, `PHP_MINOR`, or `ARCHIVEWIKI_REPO`). The repo must be public (both read its public release feed).
 - The app is ad-hoc signed, which is fine for a locally built app. If you copy it to another Mac, right-click → Open.

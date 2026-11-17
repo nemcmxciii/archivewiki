@@ -26,16 +26,18 @@ if [ ! -x "$RES/php" ]; then
   DEFAULT_REPO="nemcmxciii/archivewiki"
   REPO="${ARCHIVEWIKI_REPO:-${GITHUB_REPOSITORY:-$DEFAULT_REPO}}"
   if [ -z "${PHP_URL:-}" ]; then
-    echo "    looking for a PHP build in github.com/$REPO releases (run the 'Build PHP' workflow to create one)"
-    PHP_URL=$(curl -fsSL "https://api.github.com/repos/$REPO/releases?per_page=30" 2>/dev/null | python3 -c '
+    echo "    looking for a PHP build in github.com/$REPO releases (run the 'Build PHP' workflow to create one; the repo must be public)"
+    export REPO
+    PHP_URL=$(curl -fsSL "https://github.com/$REPO/releases.atom" 2>/dev/null | python3 -c '
 import sys,re,os
-minor=re.escape(os.environ["PHP_MINOR"])
+minor=re.escape(os.environ["PHP_MINOR"]); repo=os.environ["REPO"]
 txt=sys.stdin.read()
-best=None
-for m in re.finditer(r"https://github\.com/[^\"\s]+/php-(%s\.\d+)-cli-macos-aarch64\.tar\.gz" % minor, txt):
-    v=tuple(map(int,m.group(1).split(".")))
-    if best is None or v>best[0]: best=(v,m.group(0))
-print(best[1] if best else "")' || true)
+vs=[tuple(map(int,v.split("."))) for v in re.findall(r"/releases/tag/php-(%s\.\d+)" % minor, txt)]
+if vs:
+    v=".".join(map(str,max(vs)))
+    print("https://github.com/%s/releases/download/php-%s/php-%s-cli-macos-aarch64.tar.gz" % (repo,v,v))
+else:
+    print("")' || true)
   fi
   if [ -z "${PHP_URL:-}" ]; then
     echo "    none found; falling back to static-php.dev 'bulk' (NO pdo_sqlite: the build will stop at the check below)"
