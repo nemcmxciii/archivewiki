@@ -1,0 +1,60 @@
+# Builds a static PHP for macOS (Apple silicon) WITH pdo_sqlite (needed by DokuWiki's sqlite plugin and
+# plugins that use it, e.g. struct), and publishes it as a GitHub Release asset in this repo.
+# Run this once (and again whenever you want a newer PHP patch release), then run "Build ArchiveWiki".
+# The repository must be PUBLIC for the app's built-in PHP updater and the build script to download it.
+name: Build PHP
+on:
+  workflow_dispatch:
+    inputs:
+      php_line:
+        description: "PHP line to build (e.g. 8.3)"
+        default: "8.3"
+permissions:
+  contents: write
+jobs:
+  php:
+    runs-on: macos-latest   # Apple silicon
+    timeout-minutes: 120
+    steps:
+      - name: Download spc (static-php-cli builder)
+        run: |
+          curl -fsSL -o spc https://dl.static-php.dev/v3/spc-bin/nightly/spc-macos-aarch64 \
+            || curl -fsSL -o spc https://dl.static-php.dev/static-php-cli/spc-bin/nightly/spc-macos-aarch64
+          chmod +x spc
+          ./spc --version
+      - name: Write craft.yml
+        run: |
+          cat > craft.yml <<EOT
+          php-version: "${{ inputs.php_line }}"
+          extensions: "bcmath,bz2,calendar,ctype,curl,dom,exif,fileinfo,filter,gd,iconv,mbregex,mbstring,mysqli,mysqlnd,opcache,openssl,pcntl,pdo,pdo_mysql,pdo_sqlite,phar,posix,session,simplexml,sockets,sqlite3,tokenizer,xml,xmlreader,xmlwriter,zip,zlib"
+          sapi:
+            - cli
+          download-options:
+            parallel: 10
+          EOT
+          cat craft.yml
+      - name: Build PHP
+        run: ./spc craft -vvv
+      - name: Verify
+        run: |
+          BIN=buildroot/bin/php
+          $BIN -v
+          for m in pdo_sqlite sqlite3 dom xml mbstring zlib session gd curl openssl; do
+            $BIN -m | grep -qi "^$m$" || { echo "MISSING EXTENSION: $m"; exit 1; }
+          done
+          echo "VER=$($BIN -r 'echo PHP_VERSION;')" >> "$GITHUB_ENV"
+      - name: Package
+        run: |
+          mkdir pkg && cp buildroot/bin/php pkg/php
+          tar -C pkg -czf "php-${VER}-cli-macos-aarch64.tar.gz" php
+          ls -la php-*.tar.gz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: php-${{ env.VER }}-macos-arm64
+          path: php-*.tar.gz
+      - name: Publish as a release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: php-${{ env.VER }}
+          name: PHP ${{ env.VER }} (static, macOS arm64, with pdo_sqlite)
+          files: php-*.tar.gz

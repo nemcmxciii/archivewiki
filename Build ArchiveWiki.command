@@ -25,7 +25,7 @@ if ! command -v cargo >/dev/null 2>&1; then
 fi
 
 # 3. Build
-./scripts/bundle.sh || fail "Build failed. Copy the messages above into Claude and it will fix them."
+bash scripts/bundle.sh || fail "Build failed. Copy the messages above into Claude and it will fix them."
 
 echo
 echo "✓ Built:  dist/ArchiveWiki.app   and   dist/ArchiveWiki.dmg"

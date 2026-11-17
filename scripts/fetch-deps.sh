@@ -22,10 +22,24 @@ fi
 
 if [ ! -x "$RES/php" ]; then
   echo "==> static PHP"
-  FLAVOR="${FLAVOR:-bulk}"            # common | bulk (bulk has more extensions)
   export PHP_MINOR="${PHP_MINOR:-8.3}"
-  BASE="https://dl.static-php.dev/static-php-cli/$FLAVOR"
+  DEFAULT_REPO="nemcmxciii/archivewiki"
+  REPO="${ARCHIVEWIKI_REPO:-${GITHUB_REPOSITORY:-$DEFAULT_REPO}}"
   if [ -z "${PHP_URL:-}" ]; then
+    echo "    looking for a PHP build in github.com/$REPO releases (run the 'Build PHP' workflow to create one)"
+    PHP_URL=$(curl -fsSL "https://api.github.com/repos/$REPO/releases?per_page=30" 2>/dev/null | python3 -c '
+import sys,re,os
+minor=re.escape(os.environ["PHP_MINOR"])
+txt=sys.stdin.read()
+best=None
+for m in re.finditer(r"https://github\.com/[^\"\s]+/php-(%s\.\d+)-cli-macos-aarch64\.tar\.gz" % minor, txt):
+    v=tuple(map(int,m.group(1).split(".")))
+    if best is None or v>best[0]: best=(v,m.group(0))
+print(best[1] if best else "")' || true)
+  fi
+  if [ -z "${PHP_URL:-}" ]; then
+    echo "    none found; falling back to static-php.dev 'bulk' (NO pdo_sqlite: the build will stop at the check below)"
+    BASE="https://dl.static-php.dev/static-php-cli/bulk"
     NAME=$(curl -fsSL "$BASE/?format=json" | python3 -c '
 import json,sys,re,os
 minor=os.environ["PHP_MINOR"]
@@ -46,6 +60,16 @@ fi
 
 echo "==> sanity check"
 "$RES/php" -v | head -1
-for m in xml dom mbstring zlib gd session; do
-  "$RES/php" -m | grep -qi "^$m$" && echo "$m ok" || echo "note: $m missing"
+FAIL=0
+for m in xml dom mbstring zlib session pdo_sqlite sqlite3 ctype; do
+  if "$RES/php" -m | grep -qi "^$m$"; then echo "$m ok"; else echo "REQUIRED extension missing: $m"; FAIL=1; fi
 done
+for m in gd curl openssl intl; do
+  "$RES/php" -m | grep -qi "^$m$" && echo "$m ok" || echo "note: $m missing (optional)"
+done
+if [ "$FAIL" = "1" ]; then
+  echo
+  echo "This PHP lacks required extensions. Run the 'Build PHP' workflow on GitHub, then try again."
+  rm -f "$RES/php"
+  exit 1
+fi

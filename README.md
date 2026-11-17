@@ -60,5 +60,7 @@ Dev run: `./scripts/fetch-deps.sh && cargo run`.
 - Plugins/templates can be installed from the DokuWiki admin UI or by dropping them in `wiki/lib/plugins/`.
 - To enable logins/ACLs later: set `$conf['useacl']=1`, copy `conf/users.auth.php.dist` and `conf/acl.auth.php.dist`
   to the non-`.dist` names, and add a user.
-- PHP: static-php-cli "common" build, 8.3 line (override with `PHP_MINOR`, `FLAVOR=bulk`, or `PHP_URL`).
+- PHP: a static build made by the **Build PHP** workflow (static-php-cli, 8.3 line, includes `pdo_sqlite` for the sqlite/struct plugins).
+  Run Actions → "Build PHP" once before the first "Build ArchiveWiki"; the build script downloads it from this repo's Releases
+  (override with `PHP_URL`, `PHP_MINOR`, or `ARCHIVEWIKI_REPO`). The repo must be public for those downloads and for the in-app PHP updater.
 - The app is ad-hoc signed, which is fine for a locally built app. If you copy it to another Mac, right-click → Open.

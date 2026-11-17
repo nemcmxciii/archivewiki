@@ -33,8 +33,17 @@ const LOCAL_SEED: &str = include_str!("local.php.seed");
 const VERSION_URL: &str = "https://raw.githubusercontent.com/dokuwiki/dokuwiki/stable/VERSION";
 const DOWNLOAD_URL: &str = "https://download.dokuwiki.org/src/dokuwiki/dokuwiki-stable.tgz";
 const CHECK_INTERVAL_SECS: u64 = 24 * 60 * 60;
-// Static PHP builds (same source scripts/fetch-deps.sh uses). Updates stay within the installed minor line (8.3.x).
-const PHP_BASE: &str = "https://dl.static-php.dev/static-php-cli/bulk";
+// PHP builds come from this project's own GitHub Releases (made by the "Build PHP" workflow, which includes
+// pdo_sqlite). Updates stay within the installed minor line (8.3.x). The repository must be public.
+const PHP_REPO: &str = "nemcmxciii/archivewiki";
+
+fn php_list_url() -> String {
+    format!("https://api.github.com/repos/{PHP_REPO}/releases?per_page=30")
+}
+
+fn php_download_url(ver: &str) -> String {
+    format!("https://github.com/{PHP_REPO}/releases/download/php-{ver}/php-{ver}-cli-macos-aarch64.tar.gz")
+}
 
 #[derive(Debug)]
 enum UserEvent {
@@ -389,7 +398,7 @@ fn latest_php_in_line(listing: &str, major: u32, minor: u32) -> Option<String> {
 fn check_php(l: &Layout, proxy: &EventLoopProxy<UserEvent>, manual: bool) -> Outcome {
     let Some(installed) = php_version(&l.php) else { return Outcome::Offered };
     let Some((maj, min, _)) = parse_ver(&installed) else { return Outcome::Offered };
-    let Ok(listing) = curl_text(&format!("{PHP_BASE}/?format=json")) else { return Outcome::Unreachable };
+    let Ok(listing) = curl_text(&php_list_url()) else { return Outcome::Unreachable };
     let Some(latest) = latest_php_in_line(&listing, maj, min) else { return Outcome::Unreachable };
     if parse_ver(&latest) <= parse_ver(&installed) {
         return Outcome::UpToDate(format!("PHP {installed}"));
@@ -454,7 +463,7 @@ fn prepare_php_update(l: &Layout, new_ver: &str) -> Result<PathBuf> {
     let _ = fs::remove_dir_all(&l.updates);
     fs::create_dir_all(&l.updates)?;
     let tgz = l.updates.join("php.tgz");
-    curl_file(&format!("{PHP_BASE}/php-{new_ver}-cli-macos-aarch64.tar.gz"), &tgz)?;
+    curl_file(&php_download_url(new_ver), &tgz)?;
     let stage = l.updates.join("php-stage");
     fs::create_dir_all(&stage)?;
     let st = Command::new("/usr/bin/tar").arg("-xzf").arg(&tgz).arg("-C").arg(&stage).arg("php").status()?;
@@ -984,4 +993,3 @@ fn main() {
         std::process::exit(1);
     }
 }
-
