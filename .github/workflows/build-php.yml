@@ -16,10 +16,16 @@ jobs:
     runs-on: macos-latest   # Apple silicon
     timeout-minutes: 120
     steps:
+      - name: Install build tools (so spc's doctor has nothing to download)
+        run: |
+          brew update >/dev/null || true
+          brew install pkgconf autoconf automake libtool cmake bison re2c || true
+          pkg-config --version
       - name: Download spc (static-php-cli builder)
         run: |
-          curl -fsSL -o spc https://dl.static-php.dev/v3/spc-bin/nightly/spc-macos-aarch64 \
-            || curl -fsSL -o spc https://dl.static-php.dev/static-php-cli/spc-bin/nightly/spc-macos-aarch64
+          # Prefer the established v2 line; fall back to the v3 alpha if that path is gone.
+          curl -fsSL -o spc https://dl.static-php.dev/static-php-cli/spc-bin/nightly/spc-macos-aarch64 \
+            || curl -fsSL -o spc https://dl.static-php.dev/v3/spc-bin/nightly/spc-macos-aarch64
           chmod +x spc
           ./spc --version
       - name: Write craft.yml
@@ -29,8 +35,6 @@ jobs:
           extensions: "bcmath,bz2,calendar,ctype,curl,dom,exif,fileinfo,filter,gd,iconv,mbregex,mbstring,mysqli,mysqlnd,opcache,openssl,pcntl,pdo,pdo_mysql,pdo_sqlite,phar,posix,session,simplexml,sockets,sqlite3,tokenizer,xml,xmlreader,xmlwriter,zip,zlib"
           sapi:
             - cli
-          download-options:
-            parallel: 10
           EOT
           cat craft.yml
       - name: Build PHP
