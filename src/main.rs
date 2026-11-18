@@ -21,7 +21,11 @@ use tao::{
     event_loop::{ControlFlow, EventLoopBuilder, EventLoopProxy},
     window::WindowBuilder,
 };
+use std::sync::atomic::{AtomicBool, Ordering};
 use wry::WebViewBuilder;
+
+/// True while the app is locked (window hidden, waiting for the user to authenticate).
+static LOCKED: AtomicBool = AtomicBool::new(false);
 
 const APP_NAME: &str = "ArchiveWiki";
 /// Fixed preferred port keeps the webview origin (cookies, localStorage) stable across launches.
@@ -82,6 +86,14 @@ enum UserEvent {
     Menu(MenuEvent),
     /// The user chose a backup zip to restore (already validated and confirmed).
     RestoreBackup { zip: PathBuf },
+    /// Lock the app now (menu, inactivity or wake from sleep).
+    LockNow,
+    /// The user authenticated (or chose to continue without).
+    Unlocked,
+    /// The user chose to quit from the lock prompt.
+    QuitApp,
+    /// Result of the test authentication when turning the lock on.
+    LockSetup(bool),
     /// A verified PHP build has been downloaded; main thread swaps it in (with automatic rollback).
     ApplyPhp { staged: PathBuf, version: String },
     /// A verified update has been downloaded + backed up; main thread applies it.
@@ -98,6 +110,8 @@ struct Layout {
     router: PathBuf,
     log: PathBuf,
     pidfile: PathBuf,
+    bundle_auth: PathBuf, // pristine auth helper inside the .app
+    auth_helper: PathBuf, // locally prepared copy that actually runs
     updates: PathBuf,
     rollback: PathBuf,
     support: PathBuf,
@@ -120,6 +134,8 @@ impl Layout {
             router: support.join("router.php"),
             log: support.join("php-server.log"),
             pidfile: support.join("php.pid"),
+            bundle_auth: res.join("auth-helper"),
+            auth_helper: support.join("runtime").join("auth-helper"),
             updates: support.join("updates"),
             rollback: support.join("wiki-rollback"),
             support,
@@ -994,6 +1010,131 @@ fn restore_backup(l: &Layout, zip: &Path) -> Result<()> {
     Ok(())
 }
 
+// ---------------------------------------------------------------- app lock
+
+fn lock_enabled(l: &Layout) -> bool {
+    l.support.join("lock-on").exists()
+}
+
+/// Minutes of inactivity before locking; 0 = never (only at launch and via Lock Now).
+fn lock_idle_minutes(l: &Layout) -> u32 {
+    fs::read_to_string(l.support.join("lock-idle")).ok().and_then(|s| s.trim().parse().ok()).unwrap_or(15)
+}
+
+/// Copy the helper out of the .app and prepare it locally (clear quarantine, ad-hoc sign), like PHP.
+fn install_auth_helper(l: &Layout) {
+    if !l.bundle_auth.exists() {
+        return;
+    }
+    if let Some(dir) = l.auth_helper.parent() {
+        let _ = fs::create_dir_all(dir);
+    }
+    let _ = fs::remove_file(&l.auth_helper);
+    if fs::copy(&l.bundle_auth, &l.auth_helper).is_ok() {
+        let _ = fs::set_permissions(&l.auth_helper, fs::Permissions::from_mode(0o755));
+        prepare_binary(&l.auth_helper);
+    }
+}
+
+enum AuthResult {
+    Confirmed,
+    Failed,
+    Unavailable,
+}
+
+fn authenticate(l: &Layout, reason: &str) -> AuthResult {
+    if !l.auth_helper.exists() {
+        return AuthResult::Unavailable;
+    }
+    match Command::new(&l.auth_helper).arg(reason).status() {
+        Ok(s) => match s.code() {
+            Some(0) => AuthResult::Confirmed,
+            Some(2) => AuthResult::Unavailable,
+            _ => AuthResult::Failed,
+        },
+        Err(_) => AuthResult::Unavailable,
+    }
+}
+
+/// Two- or three-button dialog; returns the button that was pressed.
+fn choose(msg: &str, buttons: &[&str]) -> Option<String> {
+    let list = buttons.iter().map(|b| format!("\"{b}\"")).collect::<Vec<_>>().join(", ");
+    let default = buttons.last().copied().unwrap_or("OK");
+    let script = format!(
+        "display dialog \"{}\" with title \"{APP_NAME}\" buttons {{{list}}} default button \"{default}\" with icon note",
+        esc(msg)
+    );
+    let out = Command::new("osascript").args(["-e", &script]).output().ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    let text = String::from_utf8_lossy(&out.stdout);
+    buttons.iter().find(|b| text.contains(&format!("button returned:{b}"))).map(|b| b.to_string())
+}
+
+/// Background thread while locked: prompt until the user authenticates or quits.
+fn unlock_flow(l: &Layout, proxy: &EventLoopProxy<UserEvent>) {
+    loop {
+        match authenticate(l, "Unlock ArchiveWiki") {
+            AuthResult::Confirmed => {
+                let _ = proxy.send_event(UserEvent::Unlocked);
+                return;
+            }
+            AuthResult::Unavailable => {
+                let msg = "The app lock is on, but this Mac can't confirm your identity right now (no Touch ID or login password available).";
+                match choose(msg, &["Quit", "Open Anyway"]).as_deref() {
+                    Some("Open Anyway") => {
+                        let _ = proxy.send_event(UserEvent::Unlocked);
+                    }
+                    _ => {
+                        let _ = proxy.send_event(UserEvent::QuitApp);
+                    }
+                }
+                return;
+            }
+            AuthResult::Failed => match choose("ArchiveWiki is locked.", &["Quit", "Try Again"]).as_deref() {
+                Some("Try Again") => continue,
+                _ => {
+                    let _ = proxy.send_event(UserEvent::QuitApp);
+                    return;
+                }
+            },
+        }
+    }
+}
+
+/// Seconds since the last keyboard/mouse input anywhere on the Mac (no permissions needed).
+fn hid_idle_secs() -> Option<u64> {
+    let out = Command::new("/usr/sbin/ioreg").args(["-c", "IOHIDSystem"]).output().ok()?;
+    let text = String::from_utf8_lossy(&out.stdout);
+    let pos = text.find("\"HIDIdleTime\"")?;
+    let digits: String = text[pos..].chars().skip_while(|c| !c.is_ascii_digit()).take_while(|c| c.is_ascii_digit()).collect();
+    digits.parse::<u64>().ok().map(|ns| ns / 1_000_000_000)
+}
+
+/// Locks after the chosen idle time, or when the Mac has been asleep (detected as a gap between polls).
+fn lock_monitor(l: Layout, proxy: EventLoopProxy<UserEvent>) {
+    let mut last = SystemTime::now();
+    loop {
+        thread::sleep(Duration::from_secs(20));
+        let now = SystemTime::now();
+        let gap = now.duration_since(last).unwrap_or_default();
+        last = now;
+        if !lock_enabled(&l) || LOCKED.load(Ordering::SeqCst) {
+            continue;
+        }
+        let minutes = lock_idle_minutes(&l);
+        if minutes == 0 {
+            continue;
+        }
+        let slept = gap > Duration::from_secs(90);
+        let idle = hid_idle_secs().unwrap_or(0);
+        if slept || idle >= u64::from(minutes) * 60 {
+            let _ = proxy.send_event(UserEvent::LockNow);
+        }
+    }
+}
+
 fn esc(s: &str) -> String {
     s.replace('\\', "\\\\").replace('"', "\\\"")
 }
@@ -1018,7 +1159,17 @@ fn info(msg: &str) {
     dialog(msg, "note");
 }
 
-fn build_menu(auto_check: bool, auto_backup: bool) -> Result<(Menu, CheckMenuItem, CheckMenuItem)> {
+struct LockItems {
+    require: CheckMenuItem,
+    idle: Vec<(u32, CheckMenuItem)>,
+}
+
+fn build_menu(
+    auto_check: bool,
+    auto_backup: bool,
+    lock_on: bool,
+    idle_minutes: u32,
+) -> Result<(Menu, CheckMenuItem, CheckMenuItem, LockItems)> {
     let acc = |m: Modifiers, c: Code| Some(Accelerator::new(Some(m), c));
     let menu = Menu::new();
 
@@ -1040,12 +1191,26 @@ fn build_menu(auto_check: bool, auto_backup: bool) -> Result<(Menu, CheckMenuIte
         &PredefinedMenuItem::quit(None),
     ])?;
 
+    let lock_require = CheckMenuItem::with_id("lockrequire", "Require Touch ID or Password", true, lock_on, None);
+    let idle_submenu = Submenu::new("Lock After Inactivity", true);
+    let mut idle_items: Vec<(u32, CheckMenuItem)> = Vec::new();
+    for (mins, label) in [(0u32, "Never (only at launch and Lock Now)"), (5, "5 minutes"), (15, "15 minutes"), (30, "30 minutes")] {
+        let it = CheckMenuItem::with_id(format!("idle{mins}"), label, true, mins == idle_minutes, None);
+        idle_submenu.append(&it)?;
+        idle_items.push((mins, it));
+    }
+
     let file = Submenu::new("File", true);
     file.append_items(&[
         &MenuItem::with_id("print", "Print…", true, acc(Modifiers::SUPER, Code::KeyP)),
         &MenuItem::with_id("backup", "Back Up Wiki…", true, acc(Modifiers::SUPER | Modifiers::SHIFT, Code::KeyB)),
         &backup_item,
         &MenuItem::with_id("restore", "Restore from Backup…", true, None),
+        &PredefinedMenuItem::separator(),
+        &lock_require,
+        &idle_submenu,
+        &MenuItem::with_id("locknow", "Lock Now", true, acc(Modifiers::SUPER | Modifiers::SHIFT, Code::KeyL)),
+        &PredefinedMenuItem::separator(),
         &MenuItem::with_id("folder", "Show Wiki Folder in Finder", true, None),
         &PredefinedMenuItem::separator(),
         &PredefinedMenuItem::close_window(None),
@@ -1077,7 +1242,7 @@ fn build_menu(auto_check: bool, auto_backup: bool) -> Result<(Menu, CheckMenuIte
     window.append_items(&[&PredefinedMenuItem::minimize(None), &PredefinedMenuItem::maximize(None)])?;
 
     menu.append_items(&[&app, &file, &edit, &view, &window])?;
-    Ok((menu, auto_item, backup_item))
+    Ok((menu, auto_item, backup_item, LockItems { require: lock_require, idle: idle_items }))
 }
 
 // ---------------------------------------------------------------- main
@@ -1086,6 +1251,7 @@ fn run() -> Result<()> {
     let layout = Layout::discover()?;
     kill_stale(&layout.pidfile);
     sync_php(&layout.bundle_php, &layout.php)?;
+    install_auth_helper(&layout);
     sync_wiki(&layout.bundle_wiki, &layout.wiki)?;
     fs::write(&layout.router, ROUTER_PHP)?;
 
@@ -1101,10 +1267,20 @@ fn run() -> Result<()> {
     MenuEvent::set_event_handler(Some(move |e| {
         let _ = menu_proxy.send_event(UserEvent::Menu(e));
     }));
-    let (menu, auto_item, backup_item) = build_menu(auto_check_enabled(&layout), auto_backup_enabled(&layout))?;
+    let lock_on = lock_enabled(&layout);
+    if lock_on {
+        LOCKED.store(true, Ordering::SeqCst); // start locked: the window stays hidden until you authenticate
+    }
+    let (menu, auto_item, backup_item, lock_items) = build_menu(
+        auto_check_enabled(&layout),
+        auto_backup_enabled(&layout),
+        lock_on,
+        lock_idle_minutes(&layout),
+    )?;
 
     let window = WindowBuilder::new()
         .with_title(APP_NAME)
+        .with_visible(!lock_on)
         .with_inner_size(LogicalSize::new(1280.0, 860.0))
         .with_min_inner_size(LogicalSize::new(640.0, 480.0))
         .build(&event_loop)?;
@@ -1142,6 +1318,14 @@ fn run() -> Result<()> {
                 {
                     let l = layout.clone();
                     thread::spawn(move || auto_backup_loop(l));
+                }
+                {
+                    let (l, p) = (layout.clone(), update_proxy.clone());
+                    thread::spawn(move || lock_monitor(l, p));
+                }
+                if LOCKED.load(Ordering::SeqCst) {
+                    let (l, p) = (layout.clone(), update_proxy.clone());
+                    thread::spawn(move || unlock_flow(&l, &p));
                 }
                 if auto_check_enabled(&layout) && check_due(&layout) {
                     let (l, p) = (layout.clone(), update_proxy.clone());
@@ -1228,6 +1412,33 @@ fn run() -> Result<()> {
                     Err(e) => alert(&format!("The restore didn't complete.\n\n{e:#}")),
                 });
             }
+            Event::UserEvent(UserEvent::LockNow) => {
+                if lock_enabled(&layout) && !LOCKED.swap(true, Ordering::SeqCst) {
+                    window.set_visible(false);
+                    let (l, p) = (layout.clone(), update_proxy.clone());
+                    thread::spawn(move || unlock_flow(&l, &p));
+                }
+            }
+            Event::UserEvent(UserEvent::Unlocked) => {
+                LOCKED.store(false, Ordering::SeqCst);
+                window.set_visible(true);
+                window.set_focus();
+            }
+            Event::UserEvent(UserEvent::QuitApp) => {
+                server.stop();
+                *control_flow = ControlFlow::Exit;
+            }
+            Event::UserEvent(UserEvent::LockSetup(ok)) => {
+                if ok {
+                    let _ = fs::write(layout.support.join("lock-on"), "");
+                    lock_items.require.set_checked(true);
+                } else {
+                    lock_items.require.set_checked(false);
+                    thread::spawn(|| {
+                        alert("The app lock was not turned on, because your identity couldn't be confirmed. Make sure your Mac has a login password (and Touch ID, if you use it), then try again.")
+                    });
+                }
+            }
             Event::UserEvent(UserEvent::Menu(ev)) => match ev.id.0.as_str() {
                 "home" => { let _ = webview.load_url(&start_url(&layout, &origin)); }
                 "back" => { let _ = webview.evaluate_script("history.back()"); }
@@ -1241,6 +1452,36 @@ fn run() -> Result<()> {
                         Ok(p) => { let _ = Command::new("open").arg("-R").arg(p).spawn(); }
                         Err(e) => alert(&format!("Backup failed: {e:#}")),
                     });
+                }
+                "lockrequire" => {
+                    let flag = layout.support.join("lock-on");
+                    if flag.exists() {
+                        let _ = fs::remove_file(&flag);
+                        lock_items.require.set_checked(false);
+                    } else {
+                        // Only turn it on after a successful test, so you can't lock yourself out.
+                        lock_items.require.set_checked(false);
+                        let (l, p) = (layout.clone(), update_proxy.clone());
+                        thread::spawn(move || {
+                            let ok = matches!(authenticate(&l, "Turn on the ArchiveWiki app lock"), AuthResult::Confirmed);
+                            let _ = p.send_event(UserEvent::LockSetup(ok));
+                        });
+                    }
+                }
+                "locknow" => {
+                    if lock_enabled(&layout) {
+                        let _ = update_proxy.send_event(UserEvent::LockNow);
+                    } else {
+                        thread::spawn(|| info("Turn on \"Require Touch ID or Password\" in the File menu first."));
+                    }
+                }
+                id if id.starts_with("idle") => {
+                    if let Ok(mins) = id[4..].parse::<u32>() {
+                        let _ = fs::write(layout.support.join("lock-idle"), mins.to_string());
+                        for (m, item) in &lock_items.idle {
+                            item.set_checked(*m == mins);
+                        }
+                    }
                 }
                 "restore" => {
                     let p = update_proxy.clone();

@@ -48,6 +48,19 @@ Dev run: `./scripts/fetch-deps.sh && cargo run`.
   (The data that was replaced is also kept in `Application Support/ArchiveWiki/restore-previous/` until the next restore.)
 - Backups are plain zips on your own disk; turn on FileVault if you want them encrypted at rest.
 
+## App lock (optional)
+File → **Require Touch ID or Password** turns it on (it tests the prompt first, so you can't lock yourself out). When on:
+- the window stays hidden at launch until macOS confirms you (Touch ID, Apple Watch, or your login password);
+- **Lock Now** (⇧⌘L) hides the window and asks again to come back;
+- **Lock After Inactivity** (5 / 15 / 30 minutes, default 15, or Never) locks after that long without keyboard or mouse input
+  anywhere on the Mac, and also after the Mac has been asleep. "Never" means the lock applies only at launch and Lock Now.
+- Cancelling the prompt offers *Try Again* or *Quit*. If the Mac can't authenticate at all (no login password set), you're told and can
+  choose *Open Anyway*.
+
+What it does **not** do: it doesn't encrypt anything. The wiki's files stay readable to anyone who can read your user account's files
+(turn on FileVault for that), and backups are plain zips. It keeps people out of the *window*, e.g. when you step away.
+The prompt comes from a small helper (`helper/auth.swift`) built into the app by `scripts/bundle.sh`.
+
 ## Private local address
 The wiki server only listens on 127.0.0.1, and each launch generates a random secret. The app window presents it once, receives
 a session cookie, and every other request without that cookie (another app, a browser tab, a web page) gets "Forbidden".
