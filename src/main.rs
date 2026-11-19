@@ -22,6 +22,10 @@ use tao::{
     window::WindowBuilder,
 };
 use std::sync::atomic::{AtomicBool, Ordering};
+use global_hotkey::{
+    hotkey::{Code as HkCode, HotKey, Modifiers as HkMods},
+    GlobalHotKeyEvent, GlobalHotKeyManager, HotKeyState,
+};
 use wry::WebViewBuilder;
 
 /// True while the app is locked (window hidden, waiting for the user to authenticate).
@@ -45,11 +49,12 @@ const THEME_CSS: &str = include_str!("theme.css");
 const BRANDING_CSS: &str = "\n/* ArchiveWiki branding v2: the logo image includes the wordmark */\n#dokuwiki__header .logo img { height: 64px; width: auto; }\n#dokuwiki__header .logo span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }\n";
 
 // Starter structure, installed once into the wiki; only files that don't exist yet are written.
-const STARTER_VERSION: u32 = 2;
+const STARTER_VERSION: u32 = 3;
 const STARTER: &[(&str, &str)] = &[
     ("data/pages/start.txt", include_str!("starter/start.txt")),
     ("data/pages/sidebar.txt", include_str!("starter/sidebar.txt")),
     ("data/pages/inbox/start.txt", include_str!("starter/inbox_start.txt")),
+    ("data/pages/inbox/_template.txt", include_str!("starter/inbox_template.txt")),
     ("data/pages/journal/start.txt", include_str!("starter/journal_start.txt")),
     ("data/pages/journal/_template.txt", include_str!("starter/journal_template.txt")),
     ("data/pages/people/start.txt", include_str!("starter/people_start.txt")),
@@ -97,6 +102,10 @@ enum UserEvent {
     QuitApp,
     /// Result of the test authentication when turning the lock on.
     LockSetup(bool),
+    /// Open the editor on a new, timestamped Inbox page (menu or global shortcut).
+    QuickNote,
+    /// Open today's journal page in the editor.
+    TodayJournal,
     /// A verified PHP build has been downloaded; main thread swaps it in (with automatic rollback).
     ApplyPhp { staged: PathBuf, version: String },
     /// A verified update has been downloaded + backed up; main thread applies it.
@@ -1076,6 +1085,14 @@ fn appearance_script(default_mode: &str) -> String {
     )
 }
 
+fn hotkey_enabled(l: &Layout) -> bool {
+    !l.support.join("hotkey-off").exists()
+}
+
+fn stamp(fmt: &str) -> String {
+    Command::new("date").arg(fmt).output().map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string()).unwrap_or_default()
+}
+
 fn lock_enabled(l: &Layout) -> bool {
     l.support.join("lock-on").exists()
 }
@@ -1227,6 +1244,7 @@ struct MenuState {
     require: CheckMenuItem,
     idle: Vec<(u32, CheckMenuItem)>,
     appearance: Vec<(&'static str, CheckMenuItem)>,
+    hotkey: CheckMenuItem,
 }
 
 fn build_menu(
@@ -1235,6 +1253,7 @@ fn build_menu(
     lock_on: bool,
     idle_minutes: u32,
     appearance: &str,
+    hotkey_on: bool,
 ) -> Result<(Menu, CheckMenuItem, CheckMenuItem, MenuState)> {
     let acc = |m: Modifiers, c: Code| Some(Accelerator::new(Some(m), c));
     let menu = Menu::new();
@@ -1257,6 +1276,7 @@ fn build_menu(
         &PredefinedMenuItem::quit(None),
     ])?;
 
+    let hotkey_item = CheckMenuItem::with_id("hotkey", "Global Shortcut ⌃⌥⌘N for New Note", true, hotkey_on, None);
     let lock_require = CheckMenuItem::with_id("lockrequire", "Require Touch ID or Password", true, lock_on, None);
     let idle_submenu = Submenu::new("Lock After Inactivity", true);
     let mut idle_items: Vec<(u32, CheckMenuItem)> = Vec::new();
@@ -1268,6 +1288,10 @@ fn build_menu(
 
     let file = Submenu::new("File", true);
     file.append_items(&[
+        &MenuItem::with_id("newnote", "New Inbox Note", true, acc(Modifiers::SUPER | Modifiers::SHIFT, Code::KeyN)),
+        &MenuItem::with_id("todayjournal", "Today's Journal Entry", true, acc(Modifiers::SUPER | Modifiers::SHIFT, Code::KeyJ)),
+        &hotkey_item,
+        &PredefinedMenuItem::separator(),
         &MenuItem::with_id("print", "Print…", true, acc(Modifiers::SUPER, Code::KeyP)),
         &MenuItem::with_id("backup", "Back Up Wiki…", true, acc(Modifiers::SUPER | Modifiers::SHIFT, Code::KeyB)),
         &backup_item,
@@ -1317,7 +1341,7 @@ fn build_menu(
     window.append_items(&[&PredefinedMenuItem::minimize(None), &PredefinedMenuItem::maximize(None)])?;
 
     menu.append_items(&[&app, &file, &edit, &view, &window])?;
-    Ok((menu, auto_item, backup_item, MenuState { require: lock_require, idle: idle_items, appearance: appearance_items }))
+    Ok((menu, auto_item, backup_item, MenuState { require: lock_require, idle: idle_items, appearance: appearance_items, hotkey: hotkey_item }))
 }
 
 // ---------------------------------------------------------------- main
@@ -1340,6 +1364,20 @@ fn run() -> Result<()> {
     let event_loop = EventLoopBuilder::<UserEvent>::with_user_event().build();
     let menu_proxy = event_loop.create_proxy();
     let update_proxy = event_loop.create_proxy();
+    let hotkey_proxy = event_loop.create_proxy();
+    // Global shortcut (works while another app is in front). Quietly skipped if macOS or another app already owns it.
+    let hotkey = HotKey::new(Some(HkMods::CONTROL | HkMods::ALT | HkMods::SUPER), HkCode::KeyN);
+    let hotkey_manager = GlobalHotKeyManager::new().ok();
+    if hotkey_enabled(&layout) {
+        if let Some(m) = &hotkey_manager {
+            let _ = m.register(hotkey);
+        }
+    }
+    GlobalHotKeyEvent::set_event_handler(Some(move |e: GlobalHotKeyEvent| {
+        if e.state == HotKeyState::Pressed {
+            let _ = hotkey_proxy.send_event(UserEvent::QuickNote);
+        }
+    }));
     MenuEvent::set_event_handler(Some(move |e| {
         let _ = menu_proxy.send_event(UserEvent::Menu(e));
     }));
@@ -1353,6 +1391,7 @@ fn run() -> Result<()> {
         lock_on,
         lock_idle_minutes(&layout),
         &appearance_mode(&layout),
+        hotkey_enabled(&layout),
     )?;
 
     let window = WindowBuilder::new()
@@ -1490,6 +1529,20 @@ fn run() -> Result<()> {
                     Err(e) => alert(&format!("The restore didn't complete.\n\n{e:#}")),
                 });
             }
+            Event::UserEvent(UserEvent::QuickNote) => {
+                if !LOCKED.load(Ordering::SeqCst) {
+                    window.set_visible(true);
+                    window.set_focus();
+                    let _ = webview.load_url(&format!("{origin}/doku.php?id=inbox:note_{}&do=edit", stamp("+%Y-%m-%d_%H%M%S")));
+                }
+            }
+            Event::UserEvent(UserEvent::TodayJournal) => {
+                if !LOCKED.load(Ordering::SeqCst) {
+                    window.set_visible(true);
+                    window.set_focus();
+                    let _ = webview.load_url(&format!("{origin}/doku.php?id=journal:{}&do=edit", stamp("+%Y-%m-%d")));
+                }
+            }
             Event::UserEvent(UserEvent::LockNow) => {
                 if lock_enabled(&layout) && !LOCKED.swap(true, Ordering::SeqCst) {
                     window.set_visible(false);
@@ -1530,6 +1583,28 @@ fn run() -> Result<()> {
                         Ok(p) => { let _ = Command::new("open").arg("-R").arg(p).spawn(); }
                         Err(e) => alert(&format!("Backup failed: {e:#}")),
                     });
+                }
+                "newnote" => {
+                    let _ = update_proxy.send_event(UserEvent::QuickNote);
+                }
+                "todayjournal" => {
+                    let _ = update_proxy.send_event(UserEvent::TodayJournal);
+                }
+                "hotkey" => {
+                    let flag = layout.support.join("hotkey-off");
+                    if flag.exists() {
+                        let _ = fs::remove_file(&flag);
+                        if let Some(m) = &hotkey_manager {
+                            let _ = m.register(hotkey);
+                        }
+                        lock_items.hotkey.set_checked(true);
+                    } else {
+                        let _ = fs::write(&flag, "");
+                        if let Some(m) = &hotkey_manager {
+                            let _ = m.unregister(hotkey);
+                        }
+                        lock_items.hotkey.set_checked(false);
+                    }
                 }
                 "lockrequire" => {
                     let flag = layout.support.join("lock-on");

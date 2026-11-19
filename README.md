@@ -82,6 +82,13 @@ sidebar; Inbox, Journal, People, Records (residential / employment / credentials
 page templates for People and Journal (new pages in those sections start from them); and a friendlier "page not found" message.
 Edit or delete any of it freely: nothing is recreated or overwritten afterwards.
 
+## Quick capture
+- **File → New Inbox Note** (⇧⌘N) opens DokuWiki's editor on a new, timestamped page in the Inbox (`inbox:note_<date>_<time>`); sort it later.
+- **File → Today's Journal Entry** (⇧⌘J) opens today's page in the Journal (`journal:<date>`) in the editor, from the journal template.
+- **Global shortcut ⌃⌥⌘N** does the same as New Inbox Note even while another app is in front (toggle in the File menu). If macOS or another
+  app already uses that combination, it's silently skipped. While the app is locked, the shortcut does nothing.
+- Opening a note navigates the window, so any unsaved edit on the current page is left to DokuWiki's draft autosave.
+
 ## Theme and dark mode
 - **Light theme:** ArchiveWiki's slate-blue palette is applied through DokuWiki's own template settings (`conf/tpl/dokuwiki/style.ini`, written once
   if you don't have one; edit it, or use Admin → Template Style Settings), with the macOS system font.

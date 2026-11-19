@@ -8,6 +8,7 @@ description = "Self-contained DokuWiki desktop app (Rust + WKWebView + bundled P
 tao = "0.32"
 wry = "0.50"
 muda = "0.16"
+global-hotkey = "0.6"
 anyhow = "1"
 dirs = "5"
 libc = "0.2"
