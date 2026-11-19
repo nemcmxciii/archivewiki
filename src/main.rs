@@ -39,11 +39,13 @@ const FAVICON_ICO: &[u8] = include_bytes!("../assets/branding/favicon.ico");
 const TOUCH_ICON_PNG: &[u8] = include_bytes!("../assets/branding/apple-touch-icon.png");
 // logo.png is wide (disc + "ArchiveWiki" wordmark, 2x for Retina). DokuWiki would draw it at native size, so
 // this rule shows it 64px high, and keeps the wiki title text only for screen readers (the wordmark replaces it).
-const BRANDING_VERSION: u32 = 2;
+const BRANDING_VERSION: u32 = 3;
+const LOGO_DARK_PNG: &[u8] = include_bytes!("../assets/branding/logo_dark.png");
+const THEME_CSS: &str = include_str!("theme.css");
 const BRANDING_CSS: &str = "\n/* ArchiveWiki branding v2: the logo image includes the wordmark */\n#dokuwiki__header .logo img { height: 64px; width: auto; }\n#dokuwiki__header .logo span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }\n";
 
 // Starter structure, installed once into the wiki; only files that don't exist yet are written.
-const STARTER_VERSION: u32 = 1;
+const STARTER_VERSION: u32 = 2;
 const STARTER: &[(&str, &str)] = &[
     ("data/pages/start.txt", include_str!("starter/start.txt")),
     ("data/pages/sidebar.txt", include_str!("starter/sidebar.txt")),
@@ -59,6 +61,7 @@ const STARTER: &[(&str, &str)] = &[
     ("data/pages/fieldmanual/start.txt", include_str!("starter/fieldmanual_start.txt")),
     ("data/pages/reference/start.txt", include_str!("starter/reference_start.txt")),
     ("conf/lang/en/newpage.txt", include_str!("starter/newpage.txt")),
+    ("conf/tpl/dokuwiki/style.ini", include_str!("starter/style.ini")),
 ];
 
 // Automatic backups: at most one per day, the newest N are kept.
@@ -111,6 +114,7 @@ struct Layout {
     log: PathBuf,
     pidfile: PathBuf,
     bundle_auth: PathBuf, // pristine auth helper inside the .app
+    bundle_plugins: PathBuf, // curated DokuWiki plugins shipped inside the .app
     auth_helper: PathBuf, // locally prepared copy that actually runs
     updates: PathBuf,
     rollback: PathBuf,
@@ -135,6 +139,7 @@ impl Layout {
             log: support.join("php-server.log"),
             pidfile: support.join("php.pid"),
             bundle_auth: res.join("auth-helper"),
+            bundle_plugins: res.join("plugins"),
             auth_helper: support.join("runtime").join("auth-helper"),
             updates: support.join("updates"),
             rollback: support.join("wiki-rollback"),
@@ -245,10 +250,11 @@ fn install_branding(wiki: &Path) {
         return;
     }
     let logo = dir.join("logo.png");
-    if have >= 1 || !logo.exists() {
+    // v1 installed a square logo (ours, so replace it); with no marker, never overwrite a logo that's already there.
+    if have == 1 || (have == 0 && !logo.exists()) {
         let _ = fs::write(&logo, LOGO_PNG);
     }
-    for (name, bytes) in [("favicon.ico", FAVICON_ICO), ("apple-touch-icon.png", TOUCH_ICON_PNG)] {
+    for (name, bytes) in [("logo_dark.png", LOGO_DARK_PNG), ("favicon.ico", FAVICON_ICO), ("apple-touch-icon.png", TOUCH_ICON_PNG)] {
         let p = dir.join(name);
         if !p.exists() {
             let _ = fs::write(&p, bytes);
@@ -256,8 +262,14 @@ fn install_branding(wiki: &Path) {
     }
     let css = wiki.join("conf").join("userstyle.css");
     let _ = fs::create_dir_all(wiki.join("conf"));
-    let existing = fs::read_to_string(&css).unwrap_or_default();
-    let _ = fs::write(&css, format!("{existing}{BRANDING_CSS}"));
+    let mut text = fs::read_to_string(&css).unwrap_or_default();
+    if have < 2 {
+        text.push_str(BRANDING_CSS);
+    }
+    if have < 3 {
+        text.push_str(THEME_CSS);
+    }
+    let _ = fs::write(&css, text);
     let _ = fs::write(&marker, BRANDING_VERSION.to_string());
 }
 
@@ -309,6 +321,41 @@ fn install_starter(wiki: &Path) {
         let _ = fs::write(&p, content);
     }
     let _ = fs::write(&marker, STARTER_VERSION.to_string());
+}
+
+/// Curated plugins shipped with the app (struct, sqlite, bureaucracy, move, tag, pagelist, include, wrap, gallery).
+/// Each is copied into lib/plugins once, and only if you don't already have it. A plugin you remove later is not
+/// re-added, and one you installed or updated yourself is never touched.
+fn install_plugins(l: &Layout) {
+    let Ok(rd) = fs::read_dir(&l.bundle_plugins) else { return };
+    let offered_file = l.wiki.join(".archivewiki-plugins");
+    let mut offered: Vec<String> = fs::read_to_string(&offered_file)
+        .unwrap_or_default()
+        .lines()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect();
+    let target_root = l.wiki.join("lib").join("plugins");
+    let mut changed = false;
+    for e in rd.flatten() {
+        if !e.path().is_dir() {
+            continue;
+        }
+        let name = e.file_name().to_string_lossy().into_owned();
+        if offered.contains(&name) {
+            continue;
+        }
+        let dst = target_root.join(&name);
+        if !dst.exists() && copy_tree(&e.path(), &dst, Path::new(""), &[]).is_err() {
+            let _ = fs::remove_dir_all(&dst);
+            continue;
+        }
+        offered.push(name);
+        changed = true;
+    }
+    if changed {
+        let _ = fs::write(&offered_file, offered.join("\n"));
+    }
 }
 
 /// Setup wizard until DokuWiki has been configured, the wiki itself afterwards.
@@ -1012,6 +1059,23 @@ fn restore_backup(l: &Layout, zip: &Path) -> Result<()> {
 
 // ---------------------------------------------------------------- app lock
 
+fn appearance_mode(l: &Layout) -> String {
+    match fs::read_to_string(l.support.join("appearance")).ok().as_deref().map(str::trim) {
+        Some("light") => "light".into(),
+        Some("dark") => "dark".into(),
+        _ => "system".into(),
+    }
+}
+
+/// Runs at the start of every page: applies the saved appearance (the wiki's CSS reacts to data-aw-theme).
+fn appearance_script(default_mode: &str) -> String {
+    format!(
+        "(function(){{var t;try{{t=localStorage.getItem('aw-theme');}}catch(e){{}}t=t||'{default_mode}';\
+         function a(){{document.documentElement.setAttribute('data-aw-theme',t);}}\
+         if(document.documentElement){{a();}}else{{document.addEventListener('DOMContentLoaded',a);}}}})();"
+    )
+}
+
 fn lock_enabled(l: &Layout) -> bool {
     l.support.join("lock-on").exists()
 }
@@ -1159,9 +1223,10 @@ fn info(msg: &str) {
     dialog(msg, "note");
 }
 
-struct LockItems {
+struct MenuState {
     require: CheckMenuItem,
     idle: Vec<(u32, CheckMenuItem)>,
+    appearance: Vec<(&'static str, CheckMenuItem)>,
 }
 
 fn build_menu(
@@ -1169,7 +1234,8 @@ fn build_menu(
     auto_backup: bool,
     lock_on: bool,
     idle_minutes: u32,
-) -> Result<(Menu, CheckMenuItem, CheckMenuItem, LockItems)> {
+    appearance: &str,
+) -> Result<(Menu, CheckMenuItem, CheckMenuItem, MenuState)> {
     let acc = |m: Modifiers, c: Code| Some(Accelerator::new(Some(m), c));
     let menu = Menu::new();
 
@@ -1228,6 +1294,14 @@ fn build_menu(
         &PredefinedMenuItem::select_all(None),
     ])?;
 
+    let appearance_menu = Submenu::new("Appearance", true);
+    let mut appearance_items: Vec<(&'static str, CheckMenuItem)> = Vec::new();
+    for (mode, label) in [("system", "Match macOS"), ("light", "Light"), ("dark", "Dark")] {
+        let it = CheckMenuItem::with_id(format!("appearance_{mode}"), label, true, mode == appearance, None);
+        appearance_menu.append(&it)?;
+        appearance_items.push((mode, it));
+    }
+
     let view = Submenu::new("View", true);
     view.append_items(&[
         &MenuItem::with_id("home", "Home", true, acc(Modifiers::SUPER | Modifiers::SHIFT, Code::KeyH)),
@@ -1235,6 +1309,7 @@ fn build_menu(
         &MenuItem::with_id("forward", "Forward", true, acc(Modifiers::SUPER, Code::BracketRight)),
         &MenuItem::with_id("reload", "Reload", true, acc(Modifiers::SUPER, Code::KeyR)),
         &PredefinedMenuItem::separator(),
+        &appearance_menu,
         &PredefinedMenuItem::fullscreen(None),
     ])?;
 
@@ -1242,7 +1317,7 @@ fn build_menu(
     window.append_items(&[&PredefinedMenuItem::minimize(None), &PredefinedMenuItem::maximize(None)])?;
 
     menu.append_items(&[&app, &file, &edit, &view, &window])?;
-    Ok((menu, auto_item, backup_item, LockItems { require: lock_require, idle: idle_items }))
+    Ok((menu, auto_item, backup_item, MenuState { require: lock_require, idle: idle_items, appearance: appearance_items }))
 }
 
 // ---------------------------------------------------------------- main
@@ -1253,6 +1328,7 @@ fn run() -> Result<()> {
     sync_php(&layout.bundle_php, &layout.php)?;
     install_auth_helper(&layout);
     sync_wiki(&layout.bundle_wiki, &layout.wiki)?;
+    install_plugins(&layout);
     fs::write(&layout.router, ROUTER_PHP)?;
 
     let port = pick_port();
@@ -1276,6 +1352,7 @@ fn run() -> Result<()> {
         auto_backup_enabled(&layout),
         lock_on,
         lock_idle_minutes(&layout),
+        &appearance_mode(&layout),
     )?;
 
     let window = WindowBuilder::new()
@@ -1288,6 +1365,7 @@ fn run() -> Result<()> {
     let nav_origin = origin.clone();
     let webview = WebViewBuilder::new()
         .with_url(&start_url(&layout, &origin))
+        .with_initialization_script(&appearance_script(&appearance_mode(&layout)))
         .with_navigation_handler(move |u: String| {
             if u.starts_with(&nav_origin) || u.starts_with("about:") || u.starts_with("blob:") || u.starts_with("data:") {
                 true
@@ -1473,6 +1551,18 @@ fn run() -> Result<()> {
                         let _ = update_proxy.send_event(UserEvent::LockNow);
                     } else {
                         thread::spawn(|| info("Turn on \"Require Touch ID or Password\" in the File menu first."));
+                    }
+                }
+                id if id.starts_with("appearance_") => {
+                    let mode = &id["appearance_".len()..];
+                    if matches!(mode, "system" | "light" | "dark") {
+                        let _ = fs::write(layout.support.join("appearance"), mode);
+                        for (m, item) in &lock_items.appearance {
+                            item.set_checked(*m == mode);
+                        }
+                        let _ = webview.evaluate_script(&format!(
+                            "try{{localStorage.setItem('aw-theme','{mode}');}}catch(e){{}}document.documentElement.setAttribute('data-aw-theme','{mode}');"
+                        ));
                     }
                 }
                 id if id.starts_with("idle") => {

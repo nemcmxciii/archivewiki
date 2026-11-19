@@ -39,6 +39,16 @@ Dev run: `./scripts/fetch-deps.sh && cargo run`.
   `~/Documents/ArchiveWiki Backups/`, Show Wiki Folder).
 - Logs: `php-server.log` in the Application Support folder.
 
+## Bundled plugins
+These DokuWiki plugins ship inside the app and are copied into your wiki once, on first launch (or the first launch after
+updating to a version that adds them), only if you don't already have them: **struct** + **sqlite** (structured data), **bureaucracy**
+(forms), **move** (rename/move pages, updating links), **tag** + **pagelist**, **include**, **wrap** and **gallery**.
+Removing one is respected (it isn't re-added), and a plugin you installed or updated yourself is never overwritten.
+Later plugin updates come through DokuWiki's Extension Manager (needs internet) or a new ArchiveWiki release.
+Not bundled on purpose: *dw2pdf* (adds ~45 MB; use File → Print → Save as PDF instead) and *graphviz* (needs the separate `dot` program).
+Sources and licenses: `THIRD_PARTY_NOTICES.md`. The plugin versions are untested against this exact DokuWiki release, so check
+Admin → Extension Manager after the first launch.
+
 ## Backups
 - **Automatic:** once a day while the app is open (first check shortly after launch), ArchiveWiki saves `data/` and `conf/` to
   `~/Documents/ArchiveWiki Backups/auto-backup-<time>.zip` and keeps the newest 10. Toggle: File → *Back Up Automatically (Daily)*.
@@ -71,6 +81,15 @@ On first run (or the first launch after updating to this version) ArchiveWiki ad
 sidebar; Inbox, Journal, People, Records (residential / employment / credentials tables), Field Manual and Reference sections;
 page templates for People and Journal (new pages in those sections start from them); and a friendlier "page not found" message.
 Edit or delete any of it freely: nothing is recreated or overwritten afterwards.
+
+## Theme and dark mode
+- **Light theme:** ArchiveWiki's slate-blue palette is applied through DokuWiki's own template settings (`conf/tpl/dokuwiki/style.ini`, written once
+  if you don't have one; edit it, or use Admin → Template Style Settings), with the macOS system font.
+- **Dark mode:** follows macOS by default. **View → Appearance** lets you force *Light* or *Dark*. It's done in CSS (the page is
+  colour-inverted, images are left alone, and the header uses `logo_dark.png`), so it covers every page and plugin, but a few
+  colours can look slightly different from a hand-tuned dark theme. Printing always uses the light theme.
+- If you replace the header logo with your own, delete the `html ... #dokuwiki__header .logo img { content: url(...) }` lines in
+  `conf/userstyle.css` so the dark-mode swap doesn't put ArchiveWiki's logo back.
 
 ## Branding
 The ArchiveWiki logo (disc + wordmark) replaces DokuWiki's header logo, and the disc replaces the browser-tab icon (`data/media/wiki/logo.png`, `favicon.ico`,

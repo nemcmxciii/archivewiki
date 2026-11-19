@@ -1,0 +1,22 @@
+
+/* ArchiveWiki theme v3: system font, and dark mode that follows macOS (or View > Appearance) */
+body, #dokuwiki__site, input, button, select, textarea {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+@media screen and (prefers-color-scheme: dark) {
+  html:not([data-aw-theme="light"]) { background: #fff; filter: invert(.92) hue-rotate(180deg); }
+  html:not([data-aw-theme="light"]) img,
+  html:not([data-aw-theme="light"]) video,
+  html:not([data-aw-theme="light"]) canvas,
+  html:not([data-aw-theme="light"]) iframe { filter: invert(1) hue-rotate(180deg); }
+  html:not([data-aw-theme="light"]) #dokuwiki__header .logo img { content: url("/lib/exe/fetch.php?media=wiki:logo_dark.png"); }
+}
+@media screen {
+  html[data-aw-theme="dark"] { background: #fff; filter: invert(.92) hue-rotate(180deg); }
+  html[data-aw-theme="dark"] img,
+  html[data-aw-theme="dark"] video,
+  html[data-aw-theme="dark"] canvas,
+  html[data-aw-theme="dark"] iframe { filter: invert(1) hue-rotate(180deg); }
+  html[data-aw-theme="dark"] #dokuwiki__header .logo img { content: url("/lib/exe/fetch.php?media=wiki:logo_dark.png"); }
+}

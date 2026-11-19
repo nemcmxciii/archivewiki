@@ -1,0 +1,180 @@
+/**
+ * Tree Manager
+ */
+#plugin_move__tree {
+    // hidden by default
+    display: none;
+
+    > div.trees {
+        display: flex;
+        gap: 1em;
+        margin: 1em 0;
+    }
+
+    // basic list layout
+    ul {
+        list-style-type: none;
+        margin: 0.25em/2 0 0.25em 2em;
+        padding: 0.25em/2;
+
+        li {
+            margin: 0;
+            padding: 0;
+
+            div.li {
+                display: flex;
+                align-items: center;
+                gap: 0.25em;
+            }
+        }
+    }
+
+    // namespace labels can be clicked to open/close
+    li.move-ns > div.li span {
+        cursor: pointer;
+    }
+
+    // icons are used for selection
+    li > div.li i svg {
+        width: 1.5em;
+        height: 1.5em;
+        cursor: pointer;
+        fill: @ini_text_neu;
+    }
+
+    li.selected > div.li i svg {
+        fill: @ini_link;
+    }
+
+    // moved items are highlighted
+    li.changed > div.li > span {
+        background-color: @ini_highlight;
+    }
+
+    li > div.li button {
+        background: none;
+        border: none;
+        padding: 0;
+        cursor: pointer;
+        opacity: 0;
+
+        &:hover svg {
+            fill: @ini_link;
+        }
+    }
+
+    li > div.li:hover button {
+        opacity: 1;
+    }
+
+    .drop-zone {
+        border-top: 3px dashed @ini_link;
+    }
+
+    .drag-icon {
+        // hide the element from view, but keep it visible
+        position: absolute;
+        left: -9999px;
+        display: inline-flex;
+
+        svg {
+            height: 32px;
+            width: 32px;
+            fill: @ini_text_neu;
+        }
+    }
+
+    form label {
+        display: block;
+        margin: 0.5em 0;
+    }
+
+    // root is not interactable
+    li.tree-root > div.li i,
+    li.tree-root > div.li span {
+        cursor: auto;
+    }
+}
+
+
+/**
+ * The progress page
+ */
+#plugin_move__progress {
+
+    .hide {
+        display: none;
+    }
+
+
+    #plugin_move__preview {
+        span {
+            cursor: pointer;
+            color: @ini_link;
+        }
+
+        ul {
+            li.page {
+                list-style-image: url(images/page.png);
+            }
+
+            li.media {
+                list-style-image: url(images/disk.png);
+            }
+
+            li.affected {
+                list-style-image: url(images/page_link.png);
+            }
+        }
+    }
+}
+
+/**
+ * The admin form
+ */
+.dokuwiki .plugin_move_form {
+    label.block {
+        text-align: left;
+    }
+
+    label.indent {
+        padding-left: 15px;
+
+        select,
+        input {
+            float: right;
+        }
+    }
+}
+
+
+/**
+ * Pagetool icon
+ */
+#dokuwiki__pagetools ul li.plugin_move_page a {
+    background-position: right 0;
+}
+
+#dokuwiki__pagetools ul li.plugin_move_page a:before {
+    content: url(images/sprite.png);
+    margin-top: 0;
+}
+
+#dokuwiki__pagetools:hover ul li.plugin_move_page a,
+#dokuwiki__pagetools ul li.plugin_move_page a:focus,
+#dokuwiki__pagetools ul li.plugin_move_page a:active {
+    background-image: url(images/sprite.png);
+}
+
+#dokuwiki__pagetools ul li.plugin_move_page a:hover,
+#dokuwiki__pagetools ul li.plugin_move_page a:active,
+#dokuwiki__pagetools ul li.plugin_move_page a:focus {
+    background-position: right -45px;
+}
+
+/**
+ * page rename link
+ */
+.plugin_move_page {
+    display: none; // will be shown by JavaScript
+}

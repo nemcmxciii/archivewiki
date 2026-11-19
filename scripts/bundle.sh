@@ -10,6 +10,9 @@ rm -rf "$APP"; mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp target/release/archivewiki "$APP/Contents/MacOS/"
 cp resources/php "$APP/Contents/Resources/php"
 cp -R resources/dokuwiki "$APP/Contents/Resources/dokuwiki"
+# Curated DokuWiki plugins (copied into the wiki once on first launch)
+mkdir -p "$APP/Contents/Resources/plugins"
+cp -R vendor/plugins/. "$APP/Contents/Resources/plugins/"
 # Small helper for the app lock (Touch ID / password prompt via LocalAuthentication)
 swiftc -swift-version 5 -O -o "$APP/Contents/Resources/auth-helper" helper/auth.swift
 

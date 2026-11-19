@@ -1,0 +1,8 @@
+====== Move Manager =====
+
+This interface allows you to rearrange your wiki's namespaces, pages and media files via Drag'n'Drop.
+
+Click namespace names to open them, click the icons to select items. All selected items will be moved together. Click the names to rename individual items. Use the edit icon to rename a namespace, page or file.
+
+Click the "Start" button at the bottom to start the move process. You'll have the chance to review all changes resulting from the move before they are applied.
+
