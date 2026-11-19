@@ -1,6 +1,8 @@
 #[cfg(not(target_os = "macos"))]
 compile_error!("ArchiveWiki targets macOS only.");
 
+mod snapshot;
+
 use anyhow::{anyhow, bail, Context, Result};
 use muda::{
     accelerator::{Accelerator, Code, Modifiers},
@@ -1029,7 +1031,8 @@ fn validate_backup_zip(zip: &Path) -> Result<()> {
     let list = String::from_utf8_lossy(&out.stdout);
     let mut has_data = false;
     for name in list.lines() {
-        if name.contains("..") || name.starts_with('/') || !(name.starts_with("data/") || name.starts_with("conf/")) {
+        let snapshot_meta = name == snapshot::MANIFEST || name == "SNAPSHOT.txt";
+        if name.contains("..") || name.starts_with('/') || !(snapshot_meta || name.starts_with("data/") || name.starts_with("conf/")) {
             bail!("It doesn't look like an ArchiveWiki backup (unexpected entry: {name}).");
         }
         if name.starts_with("data/") {
@@ -1052,7 +1055,16 @@ fn restore_backup(l: &Layout, zip: &Path) -> Result<()> {
     if data.exists() {
         fs::rename(&data, trash.join("data")).context("could not set aside the current data")?;
     }
-    let st = Command::new("/usr/bin/unzip").arg("-oq").arg(zip).arg("-d").arg(&l.wiki).status();
+    // (a snapshot also carries MANIFEST.sha256 and SNAPSHOT.txt; those are not part of the wiki)
+    let st = Command::new("/usr/bin/unzip")
+        .arg("-oq")
+        .arg(zip)
+        .arg("-x")
+        .arg(snapshot::MANIFEST)
+        .arg("SNAPSHOT.txt")
+        .arg("-d")
+        .arg(&l.wiki)
+        .status();
     let ok = matches!(&st, Ok(s) if s.success());
     if !ok {
         let _ = fs::remove_dir_all(&data);
@@ -1216,6 +1228,156 @@ fn lock_monitor(l: Layout, proxy: EventLoopProxy<UserEvent>) {
     }
 }
 
+// ---------------------------------------------------------------- snapshots
+
+fn snapshot_dir() -> Result<PathBuf> {
+    Ok(dirs::document_dir().ok_or_else(|| anyhow!("Cannot locate ~/Documents"))?.join("ArchiveWiki Snapshots"))
+}
+
+/// A snapshot is a restorable zip of data/ and conf/ plus MANIFEST.sha256 (a SHA-256 for every file) and
+/// SNAPSHOT.txt, with the zip's own checksum saved beside it. Files are cloned first so the manifest and the zip agree.
+fn create_snapshot(l: &Layout) -> Result<(PathBuf, usize)> {
+    let dir = snapshot_dir()?;
+    fs::create_dir_all(&dir)?;
+    let stage = l.support.join("snapshot-staging");
+    let _ = fs::remove_dir_all(&stage);
+    fs::create_dir_all(&stage)?;
+    let result = (|| -> Result<(PathBuf, usize)> {
+        for top in snapshot::TOP_DIRS {
+            let src = l.wiki.join(top);
+            if !src.exists() {
+                continue;
+            }
+            // APFS clone: instant and uses no extra space. Falls back to a normal copy.
+            let cloned = Command::new("/bin/cp").arg("-Rc").arg(&src).arg(&stage).status().map(|s| s.success()).unwrap_or(false);
+            if !cloned {
+                let _ = fs::remove_dir_all(stage.join(top));
+                let st = Command::new("/bin/cp").arg("-R").arg(&src).arg(&stage).status()?;
+                if !st.success() {
+                    bail!("could not copy {top}");
+                }
+            }
+        }
+        for d in ["cache", "tmp", "locks"] {
+            let _ = fs::remove_dir_all(stage.join("data").join(d));
+        }
+        let count = snapshot::write_manifest(&stage)?;
+        let php = php_version(&l.php).unwrap_or_else(|| "unknown".into());
+        let about = format!(
+            "ArchiveWiki snapshot\nCreated: {}\nApp: ArchiveWiki {}\nDokuWiki: {}\nPHP: {}\nFiles: {}\n\n\
+             Contents: the wiki's data/ and conf/ folders (pages, older revisions, media, settings), without caches.\n\
+             Verify without ArchiveWiki: unzip this file, then in Terminal run, inside the unzipped folder:\n\
+             \x20   shasum -a 256 -c MANIFEST.sha256\n",
+            stamp("+%Y-%m-%d %H:%M:%S"),
+            env!("CARGO_PKG_VERSION"),
+            installed_version(&l.wiki),
+            php,
+            count
+        );
+        fs::write(stage.join("SNAPSHOT.txt"), about)?;
+        let name = format!("ArchiveWiki-snapshot-{}.zip", stamp("+%Y%m%d-%H%M%S"));
+        let out = dir.join(&name);
+        let st = Command::new("/usr/bin/zip")
+            .arg("-qr")
+            .arg(&out)
+            .arg(snapshot::MANIFEST)
+            .arg("SNAPSHOT.txt")
+            .arg("data")
+            .arg("conf")
+            .current_dir(&stage)
+            .status()?;
+        if !st.success() {
+            bail!("zip exited with {st}");
+        }
+        let sum = snapshot::sha256_file(&out)?;
+        fs::write(dir.join(format!("{name}.sha256")), format!("{sum}  {name}\n"))?;
+        Ok((out, count))
+    })();
+    let _ = fs::remove_dir_all(&stage);
+    result
+}
+
+/// Returns (everything matched, human-readable report).
+fn verify_snapshot_zip(l: &Layout, zip: &Path) -> Result<(bool, String)> {
+    let mut notes = String::new();
+    let side = PathBuf::from(format!("{}.sha256", zip.display()));
+    match fs::read_to_string(&side) {
+        Ok(t) => {
+            if let Some(want) = t.split_whitespace().next() {
+                if snapshot::sha256_file(zip)? != want {
+                    return Ok((false, "The zip file doesn't match its saved checksum (the .sha256 file beside it). It has been changed or damaged since it was made.".into()));
+                }
+                notes.push_str("The zip file matches its saved checksum.\n");
+            }
+        }
+        Err(_) => notes.push_str("No .sha256 file was found beside the zip, so only its contents were checked.\n"),
+    }
+    let tmp = l.support.join("snapshot-verify");
+    let _ = fs::remove_dir_all(&tmp);
+    fs::create_dir_all(&tmp)?;
+    let res = (|| -> Result<(bool, String)> {
+        let st = Command::new("/usr/bin/unzip").arg("-q").arg(zip).arg("-d").arg(&tmp).status()?;
+        if !st.success() {
+            bail!("The zip couldn't be unpacked.");
+        }
+        let v = snapshot::verify_tree(&tmp)?;
+        let mut t = notes.clone();
+        t.push_str(&format!("{} files checked.\n", v.checked));
+        if v.ok() {
+            t.push_str("Every file matches its checksum. Nothing was added, removed or changed.");
+            return Ok((true, t));
+        }
+        for (label, list) in [("Changed", &v.changed), ("Missing", &v.missing), ("Unexpected extra", &v.extra)] {
+            if !list.is_empty() {
+                t.push_str(&format!("\n{label} ({}):\n", list.len()));
+                for p in list.iter().take(8) {
+                    t.push_str(&format!("  {p}\n"));
+                }
+                if list.len() > 8 {
+                    t.push_str(&format!("  …and {} more\n", list.len() - 8));
+                }
+            }
+        }
+        Ok((false, t))
+    })();
+    let _ = fs::remove_dir_all(&tmp);
+    res
+}
+
+fn pick_zip(prompt: &str, start: Option<PathBuf>) -> Option<PathBuf> {
+    let loc = start
+        .filter(|d| d.exists())
+        .map(|d| format!(" default location (POSIX file \"{}\")", esc(&d.to_string_lossy())))
+        .unwrap_or_default();
+    let script = format!("POSIX path of (choose file with prompt \"{}\" of type {{\"zip\"}}{loc})", esc(prompt));
+    let out = Command::new("osascript").args(["-e", &script]).output().ok()?;
+    if !out.status.success() {
+        return None; // cancelled
+    }
+    Some(PathBuf::from(String::from_utf8_lossy(&out.stdout).trim()))
+}
+
+fn snapshot_flow(l: &Layout) {
+    match create_snapshot(l) {
+        Ok((p, n)) => {
+            let _ = Command::new("open").arg("-R").arg(&p).spawn();
+            info(&format!(
+                "Snapshot saved ({n} files).\n\nIt contains a checksum for every file, and the zip's own checksum is saved beside it in a .sha256 file. To be able to prove later that nothing changed, keep a copy of that .sha256 file somewhere other than this Mac."
+            ));
+        }
+        Err(e) => alert(&format!("The snapshot could not be created.\n\n{e:#}")),
+    }
+}
+
+fn verify_flow(l: &Layout) {
+    let Some(zip) = pick_zip("Choose a snapshot to verify", snapshot_dir().ok()) else { return };
+    match verify_snapshot_zip(l, &zip) {
+        Ok((true, t)) => info(&format!("Snapshot verified.\n\n{t}")),
+        Ok((false, t)) => alert(&format!("Problem found.\n\n{t}")),
+        Err(e) => alert(&format!("The snapshot could not be checked.\n\n{e:#}")),
+    }
+}
+
 fn esc(s: &str) -> String {
     s.replace('\\', "\\\\").replace('"', "\\\"")
 }
@@ -1296,6 +1458,8 @@ fn build_menu(
         &MenuItem::with_id("backup", "Back Up Wiki…", true, acc(Modifiers::SUPER | Modifiers::SHIFT, Code::KeyB)),
         &backup_item,
         &MenuItem::with_id("restore", "Restore from Backup…", true, None),
+        &MenuItem::with_id("snapshot", "Create Archive Snapshot…", true, None),
+        &MenuItem::with_id("verifysnap", "Verify Snapshot…", true, None),
         &PredefinedMenuItem::separator(),
         &lock_require,
         &idle_submenu,
@@ -1647,6 +1811,14 @@ fn run() -> Result<()> {
                             item.set_checked(*m == mins);
                         }
                     }
+                }
+                "snapshot" => {
+                    let l = layout.clone();
+                    thread::spawn(move || snapshot_flow(&l));
+                }
+                "verifysnap" => {
+                    let l = layout.clone();
+                    thread::spawn(move || verify_flow(&l));
                 }
                 "restore" => {
                     let p = update_proxy.clone();

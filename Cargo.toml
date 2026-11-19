@@ -12,6 +12,7 @@ global-hotkey = "0.6"
 anyhow = "1"
 dirs = "5"
 libc = "0.2"
+sha2 = "0.10"
 
 [profile.release]
 opt-level = "s"

@@ -71,6 +71,19 @@ What it does **not** do: it doesn't encrypt anything. The wiki's files stay read
 (turn on FileVault for that), and backups are plain zips. It keeps people out of the *window*, e.g. when you step away.
 The prompt comes from a small helper (`helper/auth.swift`) built into the app by `scripts/bundle.sh`.
 
+## Snapshots (integrity checking)
+**File → Create Archive Snapshot…** saves `~/Documents/ArchiveWiki Snapshots/ArchiveWiki-snapshot-<time>.zip`: your `data/` and `conf/`
+(pages, older revisions, media, settings; no caches), plus `MANIFEST.sha256` (a SHA-256 for every file) and `SNAPSHOT.txt`
+(when, app/DokuWiki/PHP versions, file count). The zip's own checksum is saved beside it as `<name>.zip.sha256`.
+**File → Verify Snapshot…** unpacks a snapshot and recomputes every hash, reporting changed, missing or unexpected files.
+You can also verify with no ArchiveWiki at all: unzip, then run `shasum -a 256 -c MANIFEST.sha256` inside the folder.
+A snapshot is also a valid backup: *Restore from Backup…* accepts it.
+
+What this proves, and what it doesn't: it detects accidental damage and any later change to the files, *if you trust the checksums*.
+The manifest travels inside the zip, so someone who could rewrite both the files and the manifest could fake a clean result. For real
+tamper-evidence, keep a copy of the zip's `.sha256` file (or its one-line hash) somewhere separate, such as a printout, an email to yourself,
+or another drive. Snapshots are plain, unencrypted zips.
+
 ## Private local address
 The wiki server only listens on 127.0.0.1, and each launch generates a random secret. The app window presents it once, receives
 a session cookie, and every other request without that cookie (another app, a browser tab, a web page) gets "Forbidden".
