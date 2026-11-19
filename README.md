@@ -95,6 +95,11 @@ sidebar; Inbox, Journal, People, Records (residential / employment / credentials
 page templates for People and Journal (new pages in those sections start from them); and a friendlier "page not found" message.
 Edit or delete any of it freely: nothing is recreated or overwritten afterwards.
 
+## Search
+**View → Search Archive** (⌘K) jumps to the wiki's search box (or to the search page if the current page has none). Search stays inside the app:
+ArchiveWiki deliberately does *not* add your pages to macOS Spotlight, because Spotlight would show page titles and text outside the app
+window, even while the app lock is on.
+
 ## Quick capture
 - **File → New Inbox Note** (⇧⌘N) opens DokuWiki's editor on a new, timestamped page in the Inbox (`inbox:note_<date>_<time>`); sort it later.
 - **File → Today's Journal Entry** (⇧⌘J) opens today's page in the Journal (`journal:<date>`) in the editor, from the journal template.

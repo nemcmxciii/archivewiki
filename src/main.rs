@@ -1492,6 +1492,7 @@ fn build_menu(
 
     let view = Submenu::new("View", true);
     view.append_items(&[
+        &MenuItem::with_id("search", "Search Archive", true, acc(Modifiers::SUPER, Code::KeyK)),
         &MenuItem::with_id("home", "Home", true, acc(Modifiers::SUPER | Modifiers::SHIFT, Code::KeyH)),
         &MenuItem::with_id("back", "Back", true, acc(Modifiers::SUPER, Code::BracketLeft)),
         &MenuItem::with_id("forward", "Forward", true, acc(Modifiers::SUPER, Code::BracketRight)),
@@ -1747,6 +1748,12 @@ fn run() -> Result<()> {
                         Ok(p) => { let _ = Command::new("open").arg("-R").arg(p).spawn(); }
                         Err(e) => alert(&format!("Backup failed: {e:#}")),
                     });
+                }
+                "search" => {
+                    // Focus the wiki's search box; on pages without one (e.g. the setup wizard) open the search page.
+                    let _ = webview.evaluate_script(
+                        "(function(){var e=document.getElementById('qsearch__in');if(e){e.focus();e.select();}else if(location.pathname.indexOf('install.php')<0){location.href='/doku.php?do=search';}})();",
+                    );
                 }
                 "newnote" => {
                     let _ = update_proxy.send_event(UserEvent::QuickNote);
