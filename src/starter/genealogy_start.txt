@@ -1,0 +1,3 @@
+====== Genealogy ======
+
+One page per person, for example ''%%[[genealogy:jane_doe]]%%''. New pages here start from a person template.

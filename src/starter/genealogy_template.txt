@@ -1,0 +1,16 @@
+====== @PAGE@ ======
+
+^ Born | |
+^ Died | |
+^ Living? | yes / no |
+^ Parents | |
+^ Spouse(s) | |
+^ Children | |
+
+===== Summary =====
+
+===== Timeline =====
+
+===== Sources =====
+
+===== Notes =====

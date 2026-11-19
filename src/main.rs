@@ -2,6 +2,7 @@
 compile_error!("ArchiveWiki targets macOS only.");
 
 mod snapshot;
+mod starter;
 
 use anyhow::{anyhow, bail, Context, Result};
 use muda::{
@@ -51,24 +52,37 @@ const THEME_CSS: &str = include_str!("theme.css");
 const BRANDING_CSS: &str = "\n/* ArchiveWiki branding v2: the logo image includes the wordmark */\n#dokuwiki__header .logo img { height: 64px; width: auto; }\n#dokuwiki__header .logo span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }\n";
 
 // Starter structure, installed once into the wiki; only files that don't exist yet are written.
-const STARTER_VERSION: u32 = 3;
+const STARTER_VERSION: u32 = 4;
 const STARTER: &[(&str, &str)] = &[
     ("data/pages/start.txt", include_str!("starter/start.txt")),
     ("data/pages/sidebar.txt", include_str!("starter/sidebar.txt")),
-    ("data/pages/inbox/start.txt", include_str!("starter/inbox_start.txt")),
-    ("data/pages/inbox/_template.txt", include_str!("starter/inbox_template.txt")),
     ("data/pages/journal/start.txt", include_str!("starter/journal_start.txt")),
     ("data/pages/journal/_template.txt", include_str!("starter/journal_template.txt")),
-    ("data/pages/people/start.txt", include_str!("starter/people_start.txt")),
-    ("data/pages/people/_template.txt", include_str!("starter/people_template.txt")),
-    ("data/pages/records/start.txt", include_str!("starter/records_start.txt")),
-    ("data/pages/records/residential.txt", include_str!("starter/records_residential.txt")),
-    ("data/pages/records/employment.txt", include_str!("starter/records_employment.txt")),
-    ("data/pages/records/credentials.txt", include_str!("starter/records_credentials.txt")),
-    ("data/pages/fieldmanual/start.txt", include_str!("starter/fieldmanual_start.txt")),
+    ("data/pages/genealogy/start.txt", include_str!("starter/genealogy_start.txt")),
+    ("data/pages/genealogy/_template.txt", include_str!("starter/genealogy_template.txt")),
+    ("data/pages/portfolio/start.txt", include_str!("starter/portfolio_start.txt")),
+    ("data/pages/portfolio/residential.txt", include_str!("starter/portfolio_residential.txt")),
+    ("data/pages/portfolio/employment.txt", include_str!("starter/portfolio_employment.txt")),
+    ("data/pages/portfolio/credentials.txt", include_str!("starter/portfolio_credentials.txt")),
     ("data/pages/reference/start.txt", include_str!("starter/reference_start.txt")),
     ("conf/lang/en/newpage.txt", include_str!("starter/newpage.txt")),
     ("conf/tpl/dokuwiki/style.ini", include_str!("starter/style.ini")),
+];
+
+// Starter files shipped by earlier versions. When upgrading, each is removed only if it is still exactly as shipped
+// (an edited page is never touched), and namespace folders that end up empty are tidied away.
+const LEGACY: &[(&str, &str)] = &[
+    ("data/pages/start.txt", include_str!("starter/legacy/start.txt")),
+    ("data/pages/sidebar.txt", include_str!("starter/legacy/sidebar.txt")),
+    ("data/pages/inbox/start.txt", include_str!("starter/legacy/inbox_start.txt")),
+    ("data/pages/inbox/_template.txt", include_str!("starter/legacy/inbox_template.txt")),
+    ("data/pages/people/start.txt", include_str!("starter/legacy/people_start.txt")),
+    ("data/pages/people/_template.txt", include_str!("starter/legacy/people_template.txt")),
+    ("data/pages/records/start.txt", include_str!("starter/legacy/records_start.txt")),
+    ("data/pages/records/residential.txt", include_str!("starter/legacy/records_residential.txt")),
+    ("data/pages/records/employment.txt", include_str!("starter/legacy/records_employment.txt")),
+    ("data/pages/records/credentials.txt", include_str!("starter/legacy/records_credentials.txt")),
+    ("data/pages/fieldmanual/start.txt", include_str!("starter/legacy/fieldmanual_start.txt")),
 ];
 
 // Automatic backups: at most one per day, the newest N are kept.
@@ -104,7 +118,7 @@ enum UserEvent {
     QuitApp,
     /// Result of the test authentication when turning the lock on.
     LockSetup(bool),
-    /// Open the editor on a new, timestamped Inbox page (menu or global shortcut).
+    /// Open the editor on a new, timestamped note page in the Journal (menu or global shortcut).
     QuickNote,
     /// Open today's journal page in the editor.
     TodayJournal,
@@ -319,18 +333,8 @@ fn install_starter(wiki: &Path) {
     if have >= STARTER_VERSION {
         return;
     }
-    for (rel, content) in STARTER {
-        let p = wiki.join(rel);
-        if p.exists() {
-            continue;
-        }
-        if let Some(dir) = p.parent() {
-            if fs::create_dir_all(dir).is_err() {
-                continue;
-            }
-        }
-        let _ = fs::write(&p, content);
-    }
+    starter::retire_legacy(wiki, LEGACY);
+    starter::write_missing(wiki, STARTER);
     let _ = fs::write(&marker, STARTER_VERSION.to_string());
 }
 
@@ -1450,7 +1454,7 @@ fn build_menu(
 
     let file = Submenu::new("File", true);
     file.append_items(&[
-        &MenuItem::with_id("newnote", "New Inbox Note", true, acc(Modifiers::SUPER | Modifiers::SHIFT, Code::KeyN)),
+        &MenuItem::with_id("newnote", "New Note", true, acc(Modifiers::SUPER | Modifiers::SHIFT, Code::KeyN)),
         &MenuItem::with_id("todayjournal", "Today's Journal Entry", true, acc(Modifiers::SUPER | Modifiers::SHIFT, Code::KeyJ)),
         &hotkey_item,
         &PredefinedMenuItem::separator(),
@@ -1698,7 +1702,7 @@ fn run() -> Result<()> {
                 if !LOCKED.load(Ordering::SeqCst) {
                     window.set_visible(true);
                     window.set_focus();
-                    let _ = webview.load_url(&format!("{origin}/doku.php?id=inbox:note_{}&do=edit", stamp("+%Y-%m-%d_%H%M%S")));
+                    let _ = webview.load_url(&format!("{origin}/doku.php?id=journal:note_{}&do=edit", stamp("+%Y-%m-%d_%H%M%S")));
                 }
             }
             Event::UserEvent(UserEvent::TodayJournal) => {

@@ -1,9 +1,7 @@
 **ArchiveWiki**
 
   * [[start|Home]]
-  * [[inbox:start|Inbox]]
   * [[journal:start|Journal]]
-  * [[people:start|People]]
-  * [[records:start|Records]]
-  * [[fieldmanual:start|Field Manual]]
+  * [[genealogy:start|Genealogy]]
+  * [[portfolio:start|Portfolio]]
   * [[reference:start|Reference]]

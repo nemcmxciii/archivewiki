@@ -1,0 +1,9 @@
+====== Records ======
+
+Standard information on hand for applications.
+
+  * [[records:residential|Residential history]]
+  * [[records:employment|Employment history]]
+  * [[records:credentials|Credentials]]
+
+//Tip: keep account numbers, ID numbers and similar details out of the wiki unless your Mac's disk is encrypted (FileVault).//

@@ -91,9 +91,11 @@ This is a guard against other software on your Mac reaching the wiki, not agains
 
 ## Starter structure
 On first run (or the first launch after updating to this version) ArchiveWiki adds, only where nothing exists yet: a start page and
-sidebar; Inbox, Journal, People, Records (residential / employment / credentials tables), Field Manual and Reference sections;
-page templates for People and Journal (new pages in those sections start from them); and a friendlier "page not found" message.
+sidebar; Journal, Genealogy, Portfolio (residential / employment / credentials tables) and Reference sections;
+page templates for Genealogy and Journal (new pages in those sections start from them); and a friendlier "page not found" message.
 Edit or delete any of it freely: nothing is recreated or overwritten afterwards.
+When upgrading from an earlier layout (Inbox, People, Records, Field Manual), pages from the old layout are removed only if you never
+edited them; anything you changed stays where it is.
 
 ## Search
 **View → Search Archive** (⌘K) jumps to the wiki's search box (or to the search page if the current page has none). Search stays inside the app:
@@ -101,9 +103,9 @@ ArchiveWiki deliberately does *not* add your pages to macOS Spotlight, because S
 window, even while the app lock is on.
 
 ## Quick capture
-- **File → New Inbox Note** (⇧⌘N) opens DokuWiki's editor on a new, timestamped page in the Inbox (`inbox:note_<date>_<time>`); sort it later.
+- **File → New Note** (⇧⌘N) opens DokuWiki's editor on a new, timestamped page in the Journal (`journal:note_<date>_<time>`); rename or move it later.
 - **File → Today's Journal Entry** (⇧⌘J) opens today's page in the Journal (`journal:<date>`) in the editor, from the journal template.
-- **Global shortcut ⌃⌥⌘N** does the same as New Inbox Note even while another app is in front (toggle in the File menu). If macOS or another
+- **Global shortcut ⌃⌥⌘N** does the same as New Note even while another app is in front (toggle in the File menu). If macOS or another
   app already uses that combination, it's silently skipped. While the app is locked, the shortcut does nothing.
 - Opening a note navigates the window, so any unsaved edit on the current page is left to DokuWiki's draft autosave.
 
