@@ -1,0 +1,39 @@
+/* ArchiveWiki Genealogy */
+.awg-person { display: inline-block; min-width: 18em; margin: .5em 0 1em; padding: .6em .9em; border: 1px solid __border__; border-left: 4px solid __theme_color__; background: __background_alt__; }
+.awg-person-name { font-weight: bold; font-size: 1.1em; margin-bottom: .3em; }
+.awg-person dl { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: .15em .8em; }
+.awg-person dt { color: __text_neu__; }
+.awg-person dd { margin: 0; }
+
+.awg-chart { margin: .8em 0 1.2em; overflow-x: auto; }
+/* pages with a chart may use more of the window than the template's default width */
+#dokuwiki__site:has(.awg-chart) { max-width: 100em; }
+table.awg-pedigree { width: 100%; min-width: 48em; border-collapse: separate; border-spacing: 0 3px; table-layout: fixed; }
+table.awg-pedigree td.awg-gen { padding: 0 .5em 0 0; vertical-align: middle; border: 0; background: none; }
+.awg-box { position: relative; box-sizing: border-box; min-height: 3.2em; padding: .25em .5em .25em .6em; border: 1px solid __border__; border-left: 3px solid __theme_color__; background: __background__; font-size: .82em; line-height: 1.3; }
+.awg-box .awg-name { display: block; font-weight: bold; padding-right: 1.4em; }
+.awg-box .awg-line { color: __text_neu__; font-size: .92em; overflow-wrap: anywhere; }
+.awg-box .awg-k { color: __text_alt__; }
+.awg-num { position: absolute; right: .3em; top: .1em; font-size: .7em; color: __text_alt__; }
+.awg-edit { position: absolute; right: .3em; bottom: .1em; text-decoration: none; opacity: .55; }
+.awg-edit:hover { opacity: 1; }
+.awg-empty { border: 1px dashed __border__; background: none; display: flex; align-items: center; }
+.awg-empty .awg-add { color: __text_alt__; text-decoration: none; }
+.awg-empty .awg-add:hover { color: __link__; }
+.awg-void { border: 0; background: none; min-height: 0; }
+.awg-void .awg-num { display: none; }
+.awg-living, .awg-private { background: __background_alt__; color: __text_alt__; }
+.awg-note { color: __text_neu__; }
+.awg-picker select { margin: 0 .4em; }
+
+/* inline form */
+.awg-form { font-size: .95em; }
+.awg-form input[type=text] { width: 100%; box-sizing: border-box; margin: .1em 0; }
+.awg-form .awg-row { display: flex; gap: .3em; }
+.awg-form .awg-row input { flex: 1; min-width: 0; }
+.awg-form .awg-err { color: __missing__; margin: .2em 0; }
+.awg-form button { margin-right: .3em; }
+
+/* blank printable chart */
+.awg-blankbox { min-height: 3.6em; }
+.awg-blankline { border-bottom: 1px solid __border__; height: 1.1em; margin-top: .1em; font-size: .85em; color: __text_alt__; }

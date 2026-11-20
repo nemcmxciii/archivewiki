@@ -52,7 +52,7 @@ const THEME_CSS: &str = include_str!("theme.css");
 const BRANDING_CSS: &str = "\n/* ArchiveWiki branding v2: the logo image includes the wordmark */\n#dokuwiki__header .logo img { height: 64px; width: auto; }\n#dokuwiki__header .logo span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }\n";
 
 // Starter structure, installed once into the wiki; only files that don't exist yet are written.
-const STARTER_VERSION: u32 = 4;
+const STARTER_VERSION: u32 = 5;
 const STARTER: &[(&str, &str)] = &[
     ("data/pages/start.txt", include_str!("starter/start.txt")),
     ("data/pages/sidebar.txt", include_str!("starter/sidebar.txt")),
@@ -60,6 +60,8 @@ const STARTER: &[(&str, &str)] = &[
     ("data/pages/journal/_template.txt", include_str!("starter/journal_template.txt")),
     ("data/pages/genealogy/start.txt", include_str!("starter/genealogy_start.txt")),
     ("data/pages/genealogy/_template.txt", include_str!("starter/genealogy_template.txt")),
+    ("data/pages/genealogy/chart.txt", include_str!("starter/genealogy_chart.txt")),
+    ("data/pages/genealogy/chart_blank.txt", include_str!("starter/genealogy_chart_blank.txt")),
     ("data/pages/portfolio/start.txt", include_str!("starter/portfolio_start.txt")),
     ("data/pages/portfolio/residential.txt", include_str!("starter/portfolio_residential.txt")),
     ("data/pages/portfolio/employment.txt", include_str!("starter/portfolio_employment.txt")),
@@ -83,6 +85,8 @@ const LEGACY: &[(&str, &str)] = &[
     ("data/pages/records/employment.txt", include_str!("starter/legacy/records_employment.txt")),
     ("data/pages/records/credentials.txt", include_str!("starter/legacy/records_credentials.txt")),
     ("data/pages/fieldmanual/start.txt", include_str!("starter/legacy/fieldmanual_start.txt")),
+    ("data/pages/genealogy/start.txt", include_str!("starter/legacy/genealogy_start_v4.txt")),
+    ("data/pages/genealogy/_template.txt", include_str!("starter/legacy/genealogy_template_v4.txt")),
 ];
 
 // Automatic backups: at most one per day, the newest N are kept.

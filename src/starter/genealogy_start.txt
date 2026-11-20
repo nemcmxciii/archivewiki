@@ -1,3 +1,8 @@
 ====== Genealogy ======
 
-One page per person, for example ''%%[[genealogy:jane_doe]]%%''. New pages here start from a person template.
+One page per person, for example ''%%[[genealogy:jane_doe]]%%''. A new page here starts from a template with a small details block (name, dates, places, parents) and a five-generation chart of that person's ancestors.
+
+  * [[genealogy:chart|Five-generation chart]] — pick anyone and see five generations of their ancestors
+  * [[genealogy:chart_blank|Blank chart]] — print a chart to fill in by hand
+
+**How it works:** each person's page holds a ''%%<person>%%'' block. To link parents, put their page names on the ''father'' and ''mother'' lines. On a chart, click **+ add father** or **+ add mother** to fill in a missing ancestor, or **✎** on a box to edit it. Keep ''living: yes'' for anyone who may still be alive.

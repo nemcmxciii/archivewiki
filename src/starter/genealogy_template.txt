@@ -1,11 +1,16 @@
-====== @PAGE@ ======
+====== @!!PAGE@ ======
 
-^ Born | |
-^ Died | |
-^ Living? | yes / no |
-^ Parents | |
-^ Spouse(s) | |
-^ Children | |
+<person>
+name: @!!PAGE@
+sex: 
+born: 
+birthplace: 
+died: 
+deathplace: 
+father: 
+mother: 
+living: yes
+</person>
 
 ===== Summary =====
 
@@ -14,3 +19,7 @@
 ===== Sources =====
 
 ===== Notes =====
+
+===== Five-generation chart =====
+
+{{pedigree>@ID@}}

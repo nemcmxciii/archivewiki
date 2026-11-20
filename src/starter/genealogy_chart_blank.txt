@@ -1,0 +1,5 @@
+====== Blank five-generation chart ======
+
+Print this page (⌘P) and fill it in by hand.
+
+{{pedigree>?blank}}

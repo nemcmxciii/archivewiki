@@ -1,0 +1,7 @@
+base   awgenealogy
+author ArchiveWiki
+email  archivewiki@localhost
+date   2026-11-19
+name   ArchiveWiki Genealogy
+desc   Person detail blocks and an editable five-generation pedigree chart
+url    https://github.com/nemcmxciii/archivewiki

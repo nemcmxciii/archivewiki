@@ -14,6 +14,7 @@ ArchiveWiki is a native shell around other people's open-source work. Please kee
 | pagelist | Page lists (used by tag) | GPL-2.0 | https://github.com/dokufreaks/plugin-pagelist |
 | include | Include pages in pages | GPL-2.0 | https://github.com/dokufreaks/plugin-include |
 | wrap | Layout and style blocks | GPL-2.0 | https://github.com/selfthinker/dokuwiki_plugin_wrap |
+| ArchiveWiki Genealogy | Person blocks and the five-generation chart (written for this project) | GPL-2.0, like the other DokuWiki plugins | `vendor/plugins/awgenealogy` |
 | gallery | Image galleries | GPL-2.0 | https://github.com/splitbrain/dokuwiki-plugin-gallery |
 
 Each plugin's own license file (LICENSE or COPYING) is kept inside its folder under `vendor/plugins/`.
