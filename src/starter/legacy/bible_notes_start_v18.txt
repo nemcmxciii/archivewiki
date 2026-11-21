@@ -1,0 +1,7 @@
+====== Bible Study Notes ======
+
+Keep your study notes here, separate from the WEB text. Create a note for a passage and use the template to capture observations, questions, and reflections.
+
+  * [[bible:notes:new|Create a study note]]
+
+New notes you create in this namespace will use the study template.

@@ -21,4 +21,4 @@ Yes, the islands that are in the sea will be dismayed at your departure.’
 
 [[bible:ezekiel:25|← Previous]] | [[bible:ezekiel:27|Next →]]
 
-For study: [[bible:notes:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.
+For study: [[bible:notes:entry:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.

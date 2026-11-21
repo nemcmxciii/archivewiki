@@ -21,4 +21,4 @@ Moses said, “Let it be according to your word, that you may know that there is
 
 [[bible:exodus:7|← Previous]] | [[bible:exodus:9|Next →]]
 
-For study: [[bible:notes:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.
+For study: [[bible:notes:entry:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.

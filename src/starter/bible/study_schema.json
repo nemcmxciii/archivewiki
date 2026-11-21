@@ -1,0 +1,137 @@
+{
+  "structversion": "2026-09-21",
+  "schema": "bible_study",
+  "id": 0,
+  "user": "",
+  "config": {
+    "allowed editors": "",
+    "internal": false,
+    "label": {
+      "en": "Bible Study Notes"
+    }
+  },
+  "columns": [
+    {
+      "colref": 1,
+      "ismulti": false,
+      "isenabled": true,
+      "sort": 10,
+      "label": "Passage",
+      "class": "Text",
+      "config": {
+        "visibility": {
+          "inpage": true,
+          "ineditor": true
+        },
+        "prefix": "",
+        "postfix": "",
+        "hint": {
+          "en": "Book and verse reference, for example John 3:16–17."
+        }
+      }
+    },
+    {
+      "colref": 2,
+      "ismulti": false,
+      "isenabled": true,
+      "sort": 20,
+      "label": "Date",
+      "class": "Date",
+      "config": {
+        "visibility": {
+          "inpage": true,
+          "ineditor": true
+        },
+        "format": "Y-m-d",
+        "prefilltoday": true,
+        "pastonly": false,
+        "futureonly": false,
+        "hint": {
+          "en": "The day you made this note."
+        }
+      }
+    },
+    {
+      "colref": 3,
+      "ismulti": false,
+      "isenabled": true,
+      "sort": 30,
+      "label": "Observations",
+      "class": "LongText",
+      "config": {
+        "visibility": {
+          "inpage": true,
+          "ineditor": true
+        },
+        "prefix": "",
+        "postfix": "",
+        "rows": "5",
+        "cols": "50",
+        "hint": {
+          "en": "What stands out in the passage?"
+        }
+      }
+    },
+    {
+      "colref": 4,
+      "ismulti": false,
+      "isenabled": true,
+      "sort": 40,
+      "label": "Questions",
+      "class": "LongText",
+      "config": {
+        "visibility": {
+          "inpage": true,
+          "ineditor": true
+        },
+        "prefix": "",
+        "postfix": "",
+        "rows": "4",
+        "cols": "50",
+        "hint": {
+          "en": "What would you like to understand or look up?"
+        }
+      }
+    },
+    {
+      "colref": 5,
+      "ismulti": false,
+      "isenabled": true,
+      "sort": 50,
+      "label": "Reflection",
+      "class": "LongText",
+      "config": {
+        "visibility": {
+          "inpage": true,
+          "ineditor": true
+        },
+        "prefix": "",
+        "postfix": "",
+        "rows": "5",
+        "cols": "50",
+        "hint": {
+          "en": "Record your personal reflection or response."
+        }
+      }
+    },
+    {
+      "colref": 6,
+      "ismulti": true,
+      "isenabled": true,
+      "sort": 60,
+      "label": "Related passages",
+      "class": "Text",
+      "config": {
+        "visibility": {
+          "inpage": true,
+          "ineditor": true
+        },
+        "prefix": "",
+        "postfix": "",
+        "hint": {
+          "en": "Optional. Use one book and verse reference per entry."
+        }
+      }
+    }
+  ]
+}

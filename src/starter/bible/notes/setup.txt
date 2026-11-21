@@ -1,0 +1,23 @@
+====== Set up Bible study fields ======
+
+ArchiveWiki includes the Struct plugin for consistent study fields. This one-time setup makes the fields appear in the editor for pages in the Bible study notes namespace. The WEB chapter pages are not affected.
+
+===== 1. Download the field definition =====
+
+{{:wiki:bible_study_schema.json|Download the Bible study fields file}}
+
+===== 2. Import the fields =====
+
+  - Open **Admin → Struct Schema Editor**.
+  - Create a schema named `bible_study`.
+  - Open that schema and use its **Import** option to select the downloaded JSON file.
+
+===== 3. Apply the fields to study notes =====
+
+  - Open **Admin → Struct Assignments**.
+  - Add the page pattern `bible:notes:entry:*` and choose `bible_study`.
+  - Save the assignment.
+
+Create notes from [[bible:notes:start|Bible Study Notes]] so each one gets the study template. When you edit a note, the passage, date, observations, questions, reflection, and related passage fields will appear below the page editor. The [[bible:notes:structured|structured notes list]] will let you filter by passage and date. Add topic words to the `{{tag>bible-study}}` line at the top of each note; the Topics page will help you browse by them.
+
+If you skip this setup, notes still work as regular wiki pages and the Tag plugin remains available.

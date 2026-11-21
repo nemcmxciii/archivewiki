@@ -88,4 +88,4 @@ Praise the LORD!((104:35 Hebrew: יה Yah))
 
 [[bible:psalms:103|← Previous]] | [[bible:psalms:105|Next →]]
 
-For study: [[bible:notes:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.
+For study: [[bible:notes:entry:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.

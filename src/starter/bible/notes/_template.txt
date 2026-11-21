@@ -1,24 +1,7 @@
-====== Study Note ======
+====== Bible Study Note ======
 
-**Date:** 
+{{tag>bible-study}}
 
-**Passage:** (for example, John 3:16–17)
+For the structured study fields and topic browser, create notes from [[bible:notes:start|Bible Study Notes]]. This page template is for notes elsewhere in the namespace; add topic tags after `bible-study` on the line above.
 
-===== Reading =====
-
-Paste or summarize a short passage if useful. Keep the full Bible text in its original page.
-
-===== Observations =====
-
-What stands out in the text?
-
-===== Questions =====
-
-What would you like to understand or look up?
-
-===== Reflection =====
-
-What meaning or response are you considering?
-
-===== Related passages =====
-
+===== Additional notes =====

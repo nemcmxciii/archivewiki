@@ -49,4 +49,4 @@ Praise the LORD!((115:18 Hebrew: יה Yah))
 
 [[bible:psalms:114|← Previous]] | [[bible:psalms:116|Next →]]
 
-For study: [[bible:notes:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.
+For study: [[bible:notes:entry:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.

@@ -41,4 +41,4 @@ It is marvelous in our eyes’?21:42 Psalms 118:22-23
 
 [[bible:matthew:20|← Previous]] | [[bible:matthew:22|Next →]]
 
-For study: [[bible:notes:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.
+For study: [[bible:notes:entry:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.

@@ -18,4 +18,4 @@ He answered, “Nothing, however only let me depart.”
 
 [[bible:1_kings:10|← Previous]] | [[bible:1_kings:12|Next →]]
 
-For study: [[bible:notes:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.
+For study: [[bible:notes:entry:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.

@@ -25,4 +25,4 @@ Then he arose and went down with him to the king. **16** He said to him, “The 
 
 [[bible:2_kings:start|← 2 Kings]] | [[bible:2_kings:2|Next →]]
 
-For study: [[bible:notes:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.
+For study: [[bible:notes:entry:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.

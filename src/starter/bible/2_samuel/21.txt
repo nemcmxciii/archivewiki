@@ -19,4 +19,4 @@ The king said, “I will give them.”
 
 [[bible:2_samuel:20|← Previous]] | [[bible:2_samuel:22|Next →]]
 
-For study: [[bible:notes:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.
+For study: [[bible:notes:entry:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.

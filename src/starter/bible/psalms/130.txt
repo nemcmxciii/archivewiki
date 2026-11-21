@@ -26,4 +26,4 @@ Abundant redemption is with him.
 
 [[bible:psalms:129|← Previous]] | [[bible:psalms:131|Next →]]
 
-For study: [[bible:notes:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.
+For study: [[bible:notes:entry:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.

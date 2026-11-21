@@ -84,7 +84,7 @@ const BROKEN_JOURNAL_BUTTON_CARDS_CSS: &str = r#"
 "#;
 
 // Starter structure, installed once into the wiki; only files that don't exist yet are written.
-const STARTER_VERSION: u32 = 18;
+const STARTER_VERSION: u32 = 19;
 const STARTER: &[(&str, &str)] = &[
     ("data/pages/start.txt", include_str!("starter/start.txt")),
     ("data/pages/sidebar.txt", include_str!("starter/sidebar.txt")),
@@ -1360,6 +1360,11 @@ const STARTER: &[(&str, &str)] = &[
     ("data/pages/bible/start.txt", include_str!("starter/bible/start.txt")),
     ("data/pages/bible/notes/start.txt", include_str!("starter/bible/notes/start.txt")),
     ("data/pages/bible/notes/_template.txt", include_str!("starter/bible/notes/_template.txt")),
+    ("data/pages/bible/notes/topics.txt", include_str!("starter/bible/notes/topics.txt")),
+    ("data/pages/bible/notes/structured.txt", include_str!("starter/bible/notes/structured.txt")),
+    ("data/pages/bible/notes/setup.txt", include_str!("starter/bible/notes/setup.txt")),
+    ("data/pages/bible/notes/entry/_template.txt", include_str!("starter/bible/notes/entry/_template.txt")),
+    ("data/media/wiki/bible_study_schema.json", include_str!("starter/bible/study_schema.json")),
     ("data/pages/bible/genesis/1.txt", include_str!("starter/bible/genesis/1.txt")),
     ("data/pages/bible/genesis/2.txt", include_str!("starter/bible/genesis/2.txt")),
     ("data/pages/bible/genesis/3.txt", include_str!("starter/bible/genesis/3.txt")),
@@ -2911,6 +2916,21 @@ fn install_starter(wiki: &Path) {
                 "data/pages/sidebar.txt",
                 include_str!("starter/legacy/sidebar_v17.txt"),
                 include_str!("starter/sidebar.txt"),
+            ),
+            (
+                "data/pages/bible/start.txt",
+                include_str!("starter/legacy/bible_start_v18.txt"),
+                include_str!("starter/bible/start.txt"),
+            ),
+            (
+                "data/pages/bible/notes/start.txt",
+                include_str!("starter/legacy/bible_notes_start_v18.txt"),
+                include_str!("starter/bible/notes/start.txt"),
+            ),
+            (
+                "data/pages/bible/notes/_template.txt",
+                include_str!("starter/legacy/bible_notes_template_v18.txt"),
+                include_str!("starter/bible/notes/_template.txt"),
             ),
             (
                 "data/pages/journal/start.txt",

@@ -64,4 +64,4 @@ and taste his precious fruits.
 
 [[bible:song_of_solomon:3|← Previous]] | [[bible:song_of_solomon:5|Next →]]
 
-For study: [[bible:notes:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.
+For study: [[bible:notes:entry:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.

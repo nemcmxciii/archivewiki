@@ -25,4 +25,4 @@ The people came to see what it was that had happened. **15** They came to Jesus,
 
 [[bible:mark:4|← Previous]] | [[bible:mark:6|Next →]]
 
-For study: [[bible:notes:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.
+For study: [[bible:notes:entry:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.

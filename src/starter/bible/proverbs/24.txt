@@ -82,4 +82,4 @@ and your want as an armed man.
 
 [[bible:proverbs:23|← Previous]] | [[bible:proverbs:25|Next →]]
 
-For study: [[bible:notes:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.
+For study: [[bible:notes:entry:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.

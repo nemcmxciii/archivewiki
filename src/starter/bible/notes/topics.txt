@@ -1,0 +1,13 @@
+====== Browse Bible study notes ======
+
+Choose a topic tag on any note to see other notes with that tag. Every note is tagged **bible-study** automatically.
+
+===== All Bible study notes =====
+
+{{topic>bible:notes:entry?bible-study}}
+
+===== Search tags =====
+
+Use the tag search to filter study notes by topic:
+
+{{tagsearch}}

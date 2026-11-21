@@ -40,4 +40,4 @@ the saving help of my countenance, and my God.
 
 [[bible:psalms:41|← Previous]] | [[bible:psalms:43|Next →]]
 
-For study: [[bible:notes:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.
+For study: [[bible:notes:entry:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.

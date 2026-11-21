@@ -27,4 +27,4 @@ Jacob said, “You shall not give me anything. If you will do this thing for me,
 
 [[bible:genesis:29|← Previous]] | [[bible:genesis:31|Next →]]
 
-For study: [[bible:notes:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.
+For study: [[bible:notes:entry:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.

@@ -17,7 +17,8 @@ A quiet place to read and study the World English Bible (WEB). This is the stand
 ===== Study with ArchiveWiki =====
 
   * Open a book, then choose a chapter. Use the Previous and Next links to keep reading.
-  * [[bible:notes:start|Open Bible study notes]] or [[bible:notes:new|create a study note]] tied to a passage.
+  * [[bible:notes:start|Open Bible study notes]], [[bible:notes:topics|browse by topic]], or [[bible:notes:entry:new|create a study note]].
+  * Use [[bible:notes:setup|one-time setup]] to add structured study fields.
   * Use ArchiveWiki search to look for words and phrases in the translation.
 
 ===== About this edition =====

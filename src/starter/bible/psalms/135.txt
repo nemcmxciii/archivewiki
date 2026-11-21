@@ -55,4 +55,4 @@ Praise the LORD!((135:21 Hebrew: יה Yah))
 
 [[bible:psalms:134|← Previous]] | [[bible:psalms:136|Next →]]
 
-For study: [[bible:notes:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.
+For study: [[bible:notes:entry:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.

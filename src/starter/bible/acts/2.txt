@@ -42,4 +42,4 @@ You will make me full of gladness with your presence.’2:28 Psalms 16:8-11
 
 [[bible:acts:1|← Previous]] | [[bible:acts:3|Next →]]
 
-For study: [[bible:notes:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.
+For study: [[bible:notes:entry:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.

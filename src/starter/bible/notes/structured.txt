@@ -1,0 +1,10 @@
+====== Find study notes by passage ======
+
+This list uses the Struct study fields. Complete the [[bible:notes:setup|one-time setup]] first; after that, you can filter the list by passage, date, and reflection.
+
+---- struct list ----
+schema: bible_study
+cols: %pageid%, Passage, Date, Reflection
+sort: ^Date
+dynfilters: 1
+----

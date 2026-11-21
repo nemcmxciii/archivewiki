@@ -20,4 +20,4 @@ which is, being interpreted, “God with us.”1:23 Isaiah 7:14
 
 [[bible:matthew:start|← Matthew]] | [[bible:matthew:2|Next →]]
 
-For study: [[bible:notes:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.
+For study: [[bible:notes:entry:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.

@@ -22,4 +22,4 @@ Jesus said to them, “Neither will I tell you by what authority I do these thin
 
 [[bible:mark:10|← Previous]] | [[bible:mark:12|Next →]]
 
-For study: [[bible:notes:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.
+For study: [[bible:notes:entry:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.

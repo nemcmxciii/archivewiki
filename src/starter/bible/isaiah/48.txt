@@ -93,4 +93,4 @@ He also split the rock and the waters gushed out.
 
 [[bible:isaiah:47|← Previous]] | [[bible:isaiah:49|Next →]]
 
-For study: [[bible:notes:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.
+For study: [[bible:notes:entry:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.

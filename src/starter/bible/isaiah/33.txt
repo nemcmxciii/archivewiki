@@ -87,4 +87,4 @@ The people who dwell therein will be forgiven their iniquity.
 
 [[bible:isaiah:32|← Previous]] | [[bible:isaiah:34|Next →]]
 
-For study: [[bible:notes:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.
+For study: [[bible:notes:entry:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.

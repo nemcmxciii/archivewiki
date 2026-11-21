@@ -31,4 +31,4 @@ then I would heal them.’28:27 Isaiah 6:9-10
 
 [[bible:acts:27|← Previous]]
 
-For study: [[bible:notes:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.
+For study: [[bible:notes:entry:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.

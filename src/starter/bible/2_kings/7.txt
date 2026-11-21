@@ -20,4 +20,4 @@ He said, “Behold, you will see it with your eyes, but will not eat of it.”
 
 [[bible:2_kings:6|← Previous]] | [[bible:2_kings:8|Next →]]
 
-For study: [[bible:notes:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.
+For study: [[bible:notes:entry:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.

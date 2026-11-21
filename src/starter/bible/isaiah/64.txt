@@ -50,4 +50,4 @@ Will you keep silent and punish us very severely?
 
 [[bible:isaiah:63|← Previous]] | [[bible:isaiah:65|Next →]]
 
-For study: [[bible:notes:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.
+For study: [[bible:notes:entry:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.

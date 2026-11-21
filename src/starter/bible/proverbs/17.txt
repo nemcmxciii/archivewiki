@@ -65,4 +65,4 @@ When he shuts his lips, he is thought to be discerning.
 
 [[bible:proverbs:16|← Previous]] | [[bible:proverbs:18|Next →]]
 
-For study: [[bible:notes:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.
+For study: [[bible:notes:entry:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.

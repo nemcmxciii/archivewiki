@@ -21,4 +21,4 @@ Let them grow into a multitude upon the earth.”
 
 [[bible:genesis:47|← Previous]] | [[bible:genesis:49|Next →]]
 
-For study: [[bible:notes:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.
+For study: [[bible:notes:entry:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.

@@ -89,4 +89,4 @@ for I delight in these things,” says the LORD.
 
 [[bible:jeremiah:8|← Previous]] | [[bible:jeremiah:10|Next →]]
 
-For study: [[bible:notes:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.
+For study: [[bible:notes:entry:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.

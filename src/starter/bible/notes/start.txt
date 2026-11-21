@@ -1,7 +1,12 @@
 ====== Bible Study Notes ======
 
-Keep your study notes here, separate from the WEB text. Create a note for a passage and use the template to capture observations, questions, and reflections.
+Keep study notes separate from the WEB text. Create one note per passage or topic, then use the study fields to record observations and reflections. Add topic tags to find related notes later.
 
-  * [[bible:notes:new|Create a study note]]
+  * [[bible:notes:entry:new|Create a study note]]
+  * [[bible:notes:topics|Browse study notes by topic]]
+  * [[bible:notes:structured|Find notes by passage]] (after setup)
+  * [[bible:notes:setup|Set up the study fields (one time)]]
 
-New notes you create in this namespace will use the study template.
+===== Recent study notes =====
+
+{{topic>bible:notes:entry?bible-study}}

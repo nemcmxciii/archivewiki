@@ -33,4 +33,4 @@ Make his paths straight!’”1:3 Isaiah 40:3
 
 [[bible:mark:start|← Mark]] | [[bible:mark:2|Next →]]
 
-For study: [[bible:notes:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.
+For study: [[bible:notes:entry:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.

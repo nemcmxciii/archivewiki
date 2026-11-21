@@ -45,4 +45,4 @@ in the day of the gladness of his heart.
 
 [[bible:song_of_solomon:2|← Previous]] | [[bible:song_of_solomon:4|Next →]]
 
-For study: [[bible:notes:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.
+For study: [[bible:notes:entry:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.

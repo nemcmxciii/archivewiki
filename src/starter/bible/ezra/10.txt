@@ -35,4 +35,4 @@ Of the gatekeepers: Shallum, Telem, and Uri.
 
 [[bible:ezra:9|← Previous]]
 
-For study: [[bible:notes:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.
+For study: [[bible:notes:entry:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.

@@ -36,4 +36,4 @@ Benaiah brought the king word again, saying, “This is what Joab said, and this
 
 [[bible:1_kings:1|← Previous]] | [[bible:1_kings:3|Next →]]
 
-For study: [[bible:notes:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.
+For study: [[bible:notes:entry:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.

@@ -15,4 +15,4 @@ What ails you now, that you have all gone up to the housetops? **2** You that ar
 
 [[bible:isaiah:21|← Previous]] | [[bible:isaiah:23|Next →]]
 
-For study: [[bible:notes:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.
+For study: [[bible:notes:entry:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.

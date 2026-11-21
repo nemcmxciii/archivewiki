@@ -15,4 +15,4 @@ Moses said to them, “Why do you quarrel with me? Why do you test the LORD?”
 
 [[bible:exodus:16|← Previous]] | [[bible:exodus:18|Next →]]
 
-For study: [[bible:notes:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.
+For study: [[bible:notes:entry:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.

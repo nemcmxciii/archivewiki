@@ -20,4 +20,4 @@ He said, “Swear to me by God that you will not kill me and not deliver me up i
 
 [[bible:1_samuel:29|← Previous]] | [[bible:1_samuel:31|Next →]]
 
-For study: [[bible:notes:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.
+For study: [[bible:notes:entry:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.

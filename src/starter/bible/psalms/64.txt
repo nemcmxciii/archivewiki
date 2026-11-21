@@ -33,4 +33,4 @@ All the upright in heart shall praise him!
 
 [[bible:psalms:63|← Previous]] | [[bible:psalms:65|Next →]]
 
-For study: [[bible:notes:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.
+For study: [[bible:notes:entry:new|Create a study note]] or record a passage reference in your [[journal:start|Journal]]. Your notes stay separate from the Bible text.
