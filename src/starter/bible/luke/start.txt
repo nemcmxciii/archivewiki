@@ -1,0 +1,11 @@
+====== Luke ======
+
+[[bible:start|← All books]]
+
+Choose a chapter:
+
+[[bible:luke:1|1]]  [[bible:luke:2|2]]  [[bible:luke:3|3]]  [[bible:luke:4|4]]  [[bible:luke:5|5]]  [[bible:luke:6|6]]  [[bible:luke:7|7]]  [[bible:luke:8|8]]  [[bible:luke:9|9]]  [[bible:luke:10|10]]
+[[bible:luke:11|11]]  [[bible:luke:12|12]]  [[bible:luke:13|13]]  [[bible:luke:14|14]]  [[bible:luke:15|15]]  [[bible:luke:16|16]]  [[bible:luke:17|17]]  [[bible:luke:18|18]]  [[bible:luke:19|19]]  [[bible:luke:20|20]]
+[[bible:luke:21|21]]  [[bible:luke:22|22]]  [[bible:luke:23|23]]  [[bible:luke:24|24]]
+
+[[bible:luke:1|Begin reading Luke →]]

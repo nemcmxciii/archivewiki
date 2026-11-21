@@ -1,0 +1,9 @@
+====== Philemon ======
+
+[[bible:start|← All books]]
+
+Choose a chapter:
+
+[[bible:philemon:1|1]]
+
+[[bible:philemon:1|Begin reading Philemon →]]

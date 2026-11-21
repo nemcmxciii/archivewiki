@@ -1,0 +1,9 @@
+====== Ruth ======
+
+[[bible:start|← All books]]
+
+Choose a chapter:
+
+[[bible:ruth:1|1]]  [[bible:ruth:2|2]]  [[bible:ruth:3|3]]  [[bible:ruth:4|4]]
+
+[[bible:ruth:1|Begin reading Ruth →]]

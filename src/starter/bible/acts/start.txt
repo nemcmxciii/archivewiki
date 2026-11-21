@@ -1,0 +1,11 @@
+====== Acts ======
+
+[[bible:start|← All books]]
+
+Choose a chapter:
+
+[[bible:acts:1|1]]  [[bible:acts:2|2]]  [[bible:acts:3|3]]  [[bible:acts:4|4]]  [[bible:acts:5|5]]  [[bible:acts:6|6]]  [[bible:acts:7|7]]  [[bible:acts:8|8]]  [[bible:acts:9|9]]  [[bible:acts:10|10]]
+[[bible:acts:11|11]]  [[bible:acts:12|12]]  [[bible:acts:13|13]]  [[bible:acts:14|14]]  [[bible:acts:15|15]]  [[bible:acts:16|16]]  [[bible:acts:17|17]]  [[bible:acts:18|18]]  [[bible:acts:19|19]]  [[bible:acts:20|20]]
+[[bible:acts:21|21]]  [[bible:acts:22|22]]  [[bible:acts:23|23]]  [[bible:acts:24|24]]  [[bible:acts:25|25]]  [[bible:acts:26|26]]  [[bible:acts:27|27]]  [[bible:acts:28|28]]
+
+[[bible:acts:1|Begin reading Acts →]]

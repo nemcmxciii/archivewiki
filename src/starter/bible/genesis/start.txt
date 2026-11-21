@@ -1,0 +1,13 @@
+====== Genesis ======
+
+[[bible:start|← All books]]
+
+Choose a chapter:
+
+[[bible:genesis:1|1]]  [[bible:genesis:2|2]]  [[bible:genesis:3|3]]  [[bible:genesis:4|4]]  [[bible:genesis:5|5]]  [[bible:genesis:6|6]]  [[bible:genesis:7|7]]  [[bible:genesis:8|8]]  [[bible:genesis:9|9]]  [[bible:genesis:10|10]]
+[[bible:genesis:11|11]]  [[bible:genesis:12|12]]  [[bible:genesis:13|13]]  [[bible:genesis:14|14]]  [[bible:genesis:15|15]]  [[bible:genesis:16|16]]  [[bible:genesis:17|17]]  [[bible:genesis:18|18]]  [[bible:genesis:19|19]]  [[bible:genesis:20|20]]
+[[bible:genesis:21|21]]  [[bible:genesis:22|22]]  [[bible:genesis:23|23]]  [[bible:genesis:24|24]]  [[bible:genesis:25|25]]  [[bible:genesis:26|26]]  [[bible:genesis:27|27]]  [[bible:genesis:28|28]]  [[bible:genesis:29|29]]  [[bible:genesis:30|30]]
+[[bible:genesis:31|31]]  [[bible:genesis:32|32]]  [[bible:genesis:33|33]]  [[bible:genesis:34|34]]  [[bible:genesis:35|35]]  [[bible:genesis:36|36]]  [[bible:genesis:37|37]]  [[bible:genesis:38|38]]  [[bible:genesis:39|39]]  [[bible:genesis:40|40]]
+[[bible:genesis:41|41]]  [[bible:genesis:42|42]]  [[bible:genesis:43|43]]  [[bible:genesis:44|44]]  [[bible:genesis:45|45]]  [[bible:genesis:46|46]]  [[bible:genesis:47|47]]  [[bible:genesis:48|48]]  [[bible:genesis:49|49]]  [[bible:genesis:50|50]]
+
+[[bible:genesis:1|Begin reading Genesis →]]

@@ -1,0 +1,9 @@
+====== Jonah ======
+
+[[bible:start|← All books]]
+
+Choose a chapter:
+
+[[bible:jonah:1|1]]  [[bible:jonah:2|2]]  [[bible:jonah:3|3]]  [[bible:jonah:4|4]]
+
+[[bible:jonah:1|Begin reading Jonah →]]

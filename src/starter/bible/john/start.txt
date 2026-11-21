@@ -1,0 +1,11 @@
+====== John ======
+
+[[bible:start|← All books]]
+
+Choose a chapter:
+
+[[bible:john:1|1]]  [[bible:john:2|2]]  [[bible:john:3|3]]  [[bible:john:4|4]]  [[bible:john:5|5]]  [[bible:john:6|6]]  [[bible:john:7|7]]  [[bible:john:8|8]]  [[bible:john:9|9]]  [[bible:john:10|10]]
+[[bible:john:11|11]]  [[bible:john:12|12]]  [[bible:john:13|13]]  [[bible:john:14|14]]  [[bible:john:15|15]]  [[bible:john:16|16]]  [[bible:john:17|17]]  [[bible:john:18|18]]  [[bible:john:19|19]]  [[bible:john:20|20]]
+[[bible:john:21|21]]
+
+[[bible:john:1|Begin reading John →]]

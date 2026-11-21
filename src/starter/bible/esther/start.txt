@@ -1,0 +1,9 @@
+====== Esther ======
+
+[[bible:start|← All books]]
+
+Choose a chapter:
+
+[[bible:esther:1|1]]  [[bible:esther:2|2]]  [[bible:esther:3|3]]  [[bible:esther:4|4]]  [[bible:esther:5|5]]  [[bible:esther:6|6]]  [[bible:esther:7|7]]  [[bible:esther:8|8]]  [[bible:esther:9|9]]  [[bible:esther:10|10]]
+
+[[bible:esther:1|Begin reading Esther →]]

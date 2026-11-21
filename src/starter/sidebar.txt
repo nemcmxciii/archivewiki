@@ -5,3 +5,4 @@
   * [[genealogy:start|Genealogy]]
   * [[portfolio:start|Portfolio]]
   * [[reference:start|Reference]]
+  * [[bible:start|WEB Bible]]

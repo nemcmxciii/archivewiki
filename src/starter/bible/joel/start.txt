@@ -1,0 +1,9 @@
+====== Joel ======
+
+[[bible:start|← All books]]
+
+Choose a chapter:
+
+[[bible:joel:1|1]]  [[bible:joel:2|2]]  [[bible:joel:3|3]]
+
+[[bible:joel:1|Begin reading Joel →]]

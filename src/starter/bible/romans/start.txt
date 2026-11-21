@@ -1,0 +1,10 @@
+====== Romans ======
+
+[[bible:start|← All books]]
+
+Choose a chapter:
+
+[[bible:romans:1|1]]  [[bible:romans:2|2]]  [[bible:romans:3|3]]  [[bible:romans:4|4]]  [[bible:romans:5|5]]  [[bible:romans:6|6]]  [[bible:romans:7|7]]  [[bible:romans:8|8]]  [[bible:romans:9|9]]  [[bible:romans:10|10]]
+[[bible:romans:11|11]]  [[bible:romans:12|12]]  [[bible:romans:13|13]]  [[bible:romans:14|14]]  [[bible:romans:15|15]]  [[bible:romans:16|16]]
+
+[[bible:romans:1|Begin reading Romans →]]

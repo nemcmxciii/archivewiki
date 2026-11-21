@@ -1,0 +1,11 @@
+====== Matthew ======
+
+[[bible:start|← All books]]
+
+Choose a chapter:
+
+[[bible:matthew:1|1]]  [[bible:matthew:2|2]]  [[bible:matthew:3|3]]  [[bible:matthew:4|4]]  [[bible:matthew:5|5]]  [[bible:matthew:6|6]]  [[bible:matthew:7|7]]  [[bible:matthew:8|8]]  [[bible:matthew:9|9]]  [[bible:matthew:10|10]]
+[[bible:matthew:11|11]]  [[bible:matthew:12|12]]  [[bible:matthew:13|13]]  [[bible:matthew:14|14]]  [[bible:matthew:15|15]]  [[bible:matthew:16|16]]  [[bible:matthew:17|17]]  [[bible:matthew:18|18]]  [[bible:matthew:19|19]]  [[bible:matthew:20|20]]
+[[bible:matthew:21|21]]  [[bible:matthew:22|22]]  [[bible:matthew:23|23]]  [[bible:matthew:24|24]]  [[bible:matthew:25|25]]  [[bible:matthew:26|26]]  [[bible:matthew:27|27]]  [[bible:matthew:28|28]]
+
+[[bible:matthew:1|Begin reading Matthew →]]

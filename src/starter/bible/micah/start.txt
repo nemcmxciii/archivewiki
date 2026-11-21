@@ -1,0 +1,9 @@
+====== Micah ======
+
+[[bible:start|← All books]]
+
+Choose a chapter:
+
+[[bible:micah:1|1]]  [[bible:micah:2|2]]  [[bible:micah:3|3]]  [[bible:micah:4|4]]  [[bible:micah:5|5]]  [[bible:micah:6|6]]  [[bible:micah:7|7]]
+
+[[bible:micah:1|Begin reading Micah →]]

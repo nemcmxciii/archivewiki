@@ -1,0 +1,25 @@
+====== World English Bible ======
+
+A quiet place to read and study the World English Bible (WEB). This is the standard 66-book edition, without the Deuterocanon. The text is stored locally in ArchiveWiki and can be read offline.
+
+===== Start reading =====
+
+[[bible:genesis:1|Begin with Genesis 1 →]]
+
+===== Old Testament =====
+
+[[bible:genesis:start|Genesis]] · [[bible:exodus:start|Exodus]] · [[bible:leviticus:start|Leviticus]] · [[bible:numbers:start|Numbers]] · [[bible:deuteronomy:start|Deuteronomy]] · [[bible:joshua:start|Joshua]] · [[bible:judges:start|Judges]] · [[bible:ruth:start|Ruth]] · [[bible:1_samuel:start|1 Samuel]] · [[bible:2_samuel:start|2 Samuel]] · [[bible:1_kings:start|1 Kings]] · [[bible:2_kings:start|2 Kings]] · [[bible:1_chronicles:start|1 Chronicles]] · [[bible:2_chronicles:start|2 Chronicles]] · [[bible:ezra:start|Ezra]] · [[bible:nehemiah:start|Nehemiah]] · [[bible:esther:start|Esther]] · [[bible:job:start|Job]] · [[bible:psalms:start|Psalms]] · [[bible:proverbs:start|Proverbs]] · [[bible:ecclesiastes:start|Ecclesiastes]] · [[bible:song_of_solomon:start|Song of Solomon]] · [[bible:isaiah:start|Isaiah]] · [[bible:jeremiah:start|Jeremiah]] · [[bible:lamentations:start|Lamentations]] · [[bible:ezekiel:start|Ezekiel]] · [[bible:daniel:start|Daniel]] · [[bible:hosea:start|Hosea]] · [[bible:joel:start|Joel]] · [[bible:amos:start|Amos]] · [[bible:obadiah:start|Obadiah]] · [[bible:jonah:start|Jonah]] · [[bible:micah:start|Micah]] · [[bible:nahum:start|Nahum]] · [[bible:habakkuk:start|Habakkuk]] · [[bible:zephaniah:start|Zephaniah]] · [[bible:haggai:start|Haggai]] · [[bible:zechariah:start|Zechariah]] · [[bible:malachi:start|Malachi]]
+
+===== New Testament =====
+
+[[bible:matthew:start|Matthew]] · [[bible:mark:start|Mark]] · [[bible:luke:start|Luke]] · [[bible:john:start|John]] · [[bible:acts:start|Acts]] · [[bible:romans:start|Romans]] · [[bible:1_corinthians:start|1 Corinthians]] · [[bible:2_corinthians:start|2 Corinthians]] · [[bible:galatians:start|Galatians]] · [[bible:ephesians:start|Ephesians]] · [[bible:philippians:start|Philippians]] · [[bible:colossians:start|Colossians]] · [[bible:1_thessalonians:start|1 Thessalonians]] · [[bible:2_thessalonians:start|2 Thessalonians]] · [[bible:1_timothy:start|1 Timothy]] · [[bible:2_timothy:start|2 Timothy]] · [[bible:titus:start|Titus]] · [[bible:philemon:start|Philemon]] · [[bible:hebrews:start|Hebrews]] · [[bible:james:start|James]] · [[bible:1_peter:start|1 Peter]] · [[bible:2_peter:start|2 Peter]] · [[bible:1_john:start|1 John]] · [[bible:2_john:start|2 John]] · [[bible:3_john:start|3 John]] · [[bible:jude:start|Jude]] · [[bible:revelation:start|Revelation]]
+
+===== Study with ArchiveWiki =====
+
+  * Open a book, then choose a chapter. Use the Previous and Next links to keep reading.
+  * [[bible:notes:start|Open Bible study notes]] or [[bible:notes:new|create a study note]] tied to a passage.
+  * Use ArchiveWiki search to look for words and phrases in the translation.
+
+===== About this edition =====
+
+World English Bible (WEB), without Deuterocanon; completed 2023. The supplied edition metadata identifies this translation as public domain. Scripture text is kept separate from personal notes so it remains readable and unchanged.

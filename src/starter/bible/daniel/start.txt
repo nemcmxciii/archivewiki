@@ -1,0 +1,10 @@
+====== Daniel ======
+
+[[bible:start|← All books]]
+
+Choose a chapter:
+
+[[bible:daniel:1|1]]  [[bible:daniel:2|2]]  [[bible:daniel:3|3]]  [[bible:daniel:4|4]]  [[bible:daniel:5|5]]  [[bible:daniel:6|6]]  [[bible:daniel:7|7]]  [[bible:daniel:8|8]]  [[bible:daniel:9|9]]  [[bible:daniel:10|10]]
+[[bible:daniel:11|11]]  [[bible:daniel:12|12]]
+
+[[bible:daniel:1|Begin reading Daniel →]]
