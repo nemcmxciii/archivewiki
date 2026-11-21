@@ -1,3 +1,7 @@
 ====== Journal ======
 
-One page per day or per topic, for example ''%%[[journal:2026-01-01]]%%''. New pages here start from a simple template.
+**Today's Journal Entry** (File → Today's Journal Entry, ⇧⌘J) opens today's dated page.
+
+**New Note** (File → New Note, ⇧⌘N) captures a quick thought in a timestamped page. Rename or move it later if you like.
+
+Entries are regular wiki pages. Use **View → Search Archive** (⌘K) to find them later.

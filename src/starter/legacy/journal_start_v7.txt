@@ -1,0 +1,3 @@
+====== Journal ======
+
+One page per day or per topic, for example ''%%[[journal:2026-01-01]]%%''. New pages here start from a simple template.

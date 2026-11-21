@@ -52,7 +52,7 @@ const THEME_CSS: &str = include_str!("theme.css");
 const BRANDING_CSS: &str = "\n/* ArchiveWiki branding v2: the logo image includes the wordmark */\n#dokuwiki__header .logo img { height: 64px; width: auto; }\n#dokuwiki__header .logo span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }\n";
 
 // Starter structure, installed once into the wiki; only files that don't exist yet are written.
-const STARTER_VERSION: u32 = 7;
+const STARTER_VERSION: u32 = 8;
 const STARTER: &[(&str, &str)] = &[
     ("data/pages/start.txt", include_str!("starter/start.txt")),
     ("data/pages/sidebar.txt", include_str!("starter/sidebar.txt")),
@@ -341,11 +341,28 @@ fn install_starter(wiki: &Path) {
     }
     starter::replace_if_unchanged(
         wiki,
-        &[(
-            "data/pages/start.txt",
-            include_str!("starter/legacy/start_v6.txt"),
-            include_str!("starter/start.txt"),
-        )],
+        &[
+            (
+                "data/pages/start.txt",
+                include_str!("starter/legacy/start_v6.txt"),
+                include_str!("starter/start.txt"),
+            ),
+            (
+                "data/pages/start.txt",
+                include_str!("starter/legacy/start_v7.txt"),
+                include_str!("starter/start.txt"),
+            ),
+            (
+                "data/pages/journal/start.txt",
+                include_str!("starter/legacy/journal_start_v7.txt"),
+                include_str!("starter/journal_start.txt"),
+            ),
+            (
+                "data/pages/journal/_template.txt",
+                include_str!("starter/legacy/journal_template_v7.txt"),
+                include_str!("starter/journal_template.txt"),
+            ),
+        ],
     );
     starter::retire_legacy(wiki, LEGACY);
     starter::write_missing(wiki, STARTER);
