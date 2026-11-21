@@ -1,0 +1,17 @@
+====== @@Employer name@@ — @@Job title@@ ======
+
+^ Information ^ Details ^
+| Employer name | @@Employer name@@ |
+| Employer address or work location | @@Employer address or work location@@ |
+| Job title | @@Job title@@ |
+| Dates worked | @@From (MM/YYYY)@@ – @@To (MM/YYYY; leave blank if current)@@ |
+| Main duties and accomplishments | @@Main duties and accomplishments@@ |
+| Supervisor or reference name | @@Supervisor or reference name (optional)@@ |
+| Reference phone or email | @@Reference phone or email (optional)@@ |
+| Hours or work schedule | @@Hours or work schedule (optional)@@ |
+| Pay rate and pay period | @@Pay rate and pay period (optional)@@ |
+| Reason for leaving | @@Reason for leaving (optional)@@ |
+
+{{tag>@@recordtype@@}}
+
+**Privacy:** Keep Social Security and account numbers out of the wiki.

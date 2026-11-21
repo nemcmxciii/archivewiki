@@ -1,35 +1,34 @@
 ====== Employment history ======
 
-Keep the details most often requested for work history. Forms vary, so fill only the fields that apply.
+Keep the details most often requested for work history. Forms vary, so only enter what you need.
 
-===== Current or most recent job =====
+===== Add an employment record =====
 
-^ Information ^ Details ^
-| Employer name |  |
-| Employer address or work location |  |
-| Job title |  |
-| Start and end dates (month/year; write Present if current) |  |
-| Main duties and accomplishments |  |
-| Supervisor or reference name (optional) |  |
-| Reference phone or email (optional) |  |
-| Hours or work schedule (optional) |  |
-| Pay rate and pay period (optional) |  |
-| Reason for leaving (previous jobs only; optional) |  |
+Use one entry for each job. Leave optional fields blank when they don't apply.
 
-===== Previous job =====
+<WRAP aw-employment-form>
+<form>
+action template portfolio:employment:entry_template portfolio:employment:job_@@Record number@@
+thanks "Employment record saved. Open the new record below to review or edit it."
+hiddenautoinc "Record number" 0000
+hidden "recordtype" =employment
+textbox "Employer name"
+textbox "Employer address or work location" !
+textbox "Job title"
+textbox "From (MM/YYYY)"
+textbox "To (MM/YYYY; leave blank if current)" !
+textarea "Main duties and accomplishments" x4 !
+textbox "Supervisor or reference name (optional)" !
+textbox "Reference phone or email (optional)" !
+textbox "Hours or work schedule (optional)" !
+textbox "Pay rate and pay period (optional)" !
+textarea "Reason for leaving (optional)" x2 !
+submit "Save employment record"
+</form>
+</WRAP>
 
-^ Information ^ Details ^
-| Employer name |  |
-| Employer address or work location |  |
-| Job title |  |
-| Start and end dates (month/year) |  |
-| Main duties and accomplishments |  |
-| Supervisor or reference name (optional) |  |
-| Reference phone or email (optional) |  |
-| Hours or work schedule (optional) |  |
-| Pay rate and pay period (optional) |  |
-| Reason for leaving (optional) |  |
+===== Saved employment records =====
 
-**To add another job:** copy the Previous job heading and table, then fill in the copy.
+{{topic>portfolio:employment?employment}}
 
-**Privacy:** Record pay only if useful for an application. Keep Social Security and account numbers out of the wiki.
+**Privacy:** Record pay and reference details only when useful. Keep Social Security and account numbers out of the wiki.
