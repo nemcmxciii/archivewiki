@@ -65,4 +65,76 @@ jQuery(function () {
             birthplace: $box.attr('data-birthplace'), died: $box.attr('data-died'), deathplace: $box.attr('data-deathplace')
         });
     });
+
+    // ---------------------------------------------------------------- fillable form view
+    $('.awg-formwrap').each(function () {
+        var $w = $(this);
+        var $form = $w.find('form.awg-form');
+        var $save = $form.find('.awg-save');
+        var $msg = $form.find('.awg-msg');
+        var $dirty = $form.find('.awg-dirty');
+
+        function card(n) { return $form.find('.awg-card[data-n="' + n + '"]'); }
+        function nameOf($c) { return $.trim($c.find('input[name$="[name]"]').val() || ''); }
+        function hasPerson($c) { return !!$c.attr('data-id') || nameOf($c) !== ''; }
+
+        // A card unlocks once the person below it (its child on the chart) has a name.
+        function refresh() {
+            $form.find('.awg-card').each(function () {
+                var $c = $(this), n = parseInt($c.attr('data-n'), 10);
+                if (n === 1 || $c.attr('data-id')) { return; }
+                var $p = card(Math.floor(n / 2));
+                var open = hasPerson($p) && !$p.hasClass('awg-blocked');
+                $c.toggleClass('awg-blocked', !open);
+                $c.find('input').prop('disabled', !open);
+                $c.find('.awg-hint').text(open ? 'Not created yet' : 'Fill in the previous generation first.');
+            });
+        }
+        refresh();
+
+        $form.on('input change', 'input', function () {
+            $save.prop('disabled', false);
+            $dirty.text('Unsaved changes');
+            $msg.removeClass('awg-bad awg-good').text('');
+            refresh();
+        });
+
+        $form.on('submit', function (e) {
+            e.preventDefault();
+            $form.find('.awg-err').remove();
+            $form.find('.awg-card').removeClass('awg-has-error');
+            $msg.removeClass('awg-bad awg-good').text('');
+            var data = $form.serializeArray();
+            data.push(
+                {name: 'call', value: 'awgenealogy'}, {name: 'mode', value: 'saveform'},
+                {name: 'id', value: $w.attr('data-root')}, {name: 'gens', value: $w.attr('data-gens')},
+                {name: 'sectok', value: $w.attr('data-sectok')}
+            );
+            $save.prop('disabled', true);
+            $dirty.text('Saving…');
+            $.post(DOKU_BASE + 'lib/exe/ajax.php', data, null, 'json')
+                .done(function (r) {
+                    if (r && r.ok) {
+                        $msg.addClass('awg-good').text(r.message);
+                        window.location.reload();
+                        return;
+                    }
+                    $msg.addClass('awg-bad').text((r && r.message) || 'Could not save.');
+                    var first = null;
+                    $.each((r && r.errors) || {}, function (n, text) {
+                        var $c = card(n);
+                        $c.addClass('awg-has-error').append($('<div class="awg-err"/>').text(text));
+                        if (!first) { first = $c; }
+                    });
+                    if (first && first[0] && first[0].scrollIntoView) { first[0].scrollIntoView({block: 'center'}); }
+                    $save.prop('disabled', false);
+                    $dirty.text('Unsaved changes');
+                })
+                .fail(function (xhr) {
+                    $msg.addClass('awg-bad').text('Could not save (' + xhr.status + ').');
+                    $save.prop('disabled', false);
+                    $dirty.text('Unsaved changes');
+                });
+        });
+    });
 });

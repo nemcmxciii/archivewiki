@@ -37,3 +37,31 @@ table.awg-pedigree td.awg-gen { padding: 0 .5em 0 0; vertical-align: middle; bor
 /* blank printable chart */
 .awg-blankbox { min-height: 3.6em; }
 .awg-blankline { border-bottom: 1px solid __border__; height: 1.1em; margin-top: .1em; font-size: .85em; color: __text_alt__; }
+
+/* fillable form view: flows vertically, one generation after another */
+.awg-views { margin: .2em 0 .6em; color: __text_alt__; font-size: .9em; }
+.awg-form { margin: 0 0 1.2em; }
+.awg-gensec { margin: 0 0 1.4em; }
+.awg-gensec h3 { margin: 0 0 .5em; padding-bottom: .15em; border-bottom: 1px solid __border__; font-size: 1.05em; color: __text_neu__; }
+.awg-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(17em, 1fr)); gap: .7em; }
+fieldset.awg-card { margin: 0; padding: .3em .7em .6em; min-width: 0; width: 100%; box-sizing: border-box; text-align: left; border: 1px solid __border__; border-left: 3px solid __theme_color__; background: __background__; }
+fieldset.awg-card legend { padding: 0 .35em; font-weight: bold; }
+fieldset.awg-card legend small { font-weight: normal; color: __text_alt__; }
+fieldset.awg-card .awg-num { position: static; display: inline-block; min-width: 1.5em; margin-right: .2em; padding: 0 .3em; text-align: center; border-radius: .8em; background: __background_neu__; color: __text_neu__; font-size: .8em; }
+.awg-f { display: block; margin: .25em 0 0; text-align: left; background: none; padding: 0; }
+.awg-f > span { display: block; text-align: left; font-size: .78em; color: __text_alt__; line-height: 1.2; }
+.awg-f input.edit { width: 100%; box-sizing: border-box; margin: 0; }
+.awg-pair { display: grid; grid-template-columns: 1fr 1.4fr; gap: .5em; }
+.awg-foot { margin-top: .45em; font-size: .85em; display: flex; flex-wrap: wrap; gap: .3em 1em; align-items: center; }
+.awg-living { background: none; padding: 0; }
+.awg-living input { margin-right: .3em; }
+.awg-hint { color: __text_alt__; }
+fieldset.awg-blocked { opacity: .5; background: __background_alt__; border-left-style: dashed; }
+fieldset.awg-has { background: __background__; }
+fieldset.awg-has-error { border-color: __missing__; }
+.awg-card .awg-err { color: __missing__; font-size: .85em; margin-top: .3em; }
+.awg-msg { margin: 0 0 .6em; }
+.awg-msg.awg-bad { color: __missing__; font-weight: bold; }
+.awg-msg.awg-good { color: __existing__; font-weight: bold; }
+.awg-actions { position: sticky; bottom: 0; padding: .6em 0; background: __background__; border-top: 1px solid __border__; }
+.awg-dirty { margin-left: .8em; color: __text_alt__; font-size: .9em; }

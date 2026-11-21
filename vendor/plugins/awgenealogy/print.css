@@ -13,3 +13,17 @@ table.awg-pedigree td.awg-gen { padding: 0 4pt 0 0; vertical-align: middle; bord
 .awg-blankbox { min-height: 3.4em; }
 .awg-blankline { border-bottom: 0.5pt solid #777; height: 1.1em; margin-top: 1pt; font-size: 7.5pt; color: #666; }
 a.awg-name:after { content: none !important; }
+
+/* form view when printed */
+.awg-views, .awg-actions, .awg-msg, .awg-open, .awg-hint { display: none !important; }
+.awg-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5pt; }
+.awg-gensec { page-break-inside: avoid; margin-bottom: 8pt; }
+.awg-gensec h3 { font-size: 10pt; margin: 0 0 3pt; border-bottom: 0.5pt solid #888; }
+fieldset.awg-card { margin: 0; padding: 2pt 5pt 4pt; border: 0.75pt solid #888; font-size: 8.5pt; page-break-inside: avoid; }
+fieldset.awg-card legend { font-weight: bold; font-size: 8.5pt; }
+fieldset.awg-card legend small { font-weight: normal; color: #555; }
+fieldset.awg-blocked { opacity: .45; }
+.awg-f > span { font-size: 6.5pt; color: #666; }
+.awg-f input { width: 100%; border: 0; border-bottom: 0.5pt solid #777; border-radius: 0; background: none; font-size: 8.5pt; padding: 0; box-shadow: none; }
+.awg-pair { display: grid; grid-template-columns: 1fr 1.4fr; gap: 4pt; }
+.awg-foot { font-size: 7.5pt; margin-top: 2pt; }

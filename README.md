@@ -43,16 +43,20 @@ Dev run: `./scripts/fetch-deps.sh && cargo run`.
 The **ArchiveWiki Genealogy** plugin (`vendor/plugins/awgenealogy`, copied into your wiki like the other bundled plugins) adds:
 - a **person block** (`<person> ... </person>`) on each person's page: name, sex, born / birthplace, died / deathplace, `father`, `mother`
   (page names, resolved like links in the same section) and `living`. It's shown as a small card on the page;
-- a **five-generation chart**: `{{pedigree>genealogy:jane_doe}}` (add `?4` for a different number of generations, `&redact` to show
-  living people as "Living"). New person pages include one automatically. `genealogy:chart` has a person picker, and
-  `genealogy:chart_blank` is a blank chart to print and fill in by hand. People are numbered the standard way (1 = root, 2 = father,
-  3 = mother, 2n / 2n+1 = parents of n);
-- **fill-in and editing on the chart**: **+ add father / + add mother** on a dashed box asks for a name and optional dates, creates that person's page
-  and links it as the parent; **✎** on a box edits its name, dates and places. Everything is saved as ordinary wiki pages (with history).
-  Who may do this follows DokuWiki's permissions.
-- printing uses a one-page landscape layout (⌘P).
-Notes: a person with a death date is saved as `living: no`; anyone added without one is `living: yes`, so nothing is shared by mistake.
-Marriages, siblings and multiple spouses aren't modelled yet; the chart follows only the father and mother links.
+- a **fillable five-generation form**: `{{pedigree>genealogy:jane_doe}}` (add `?4` for a different number of generations). It lists the
+  person, parents, grandparents, great-grandparents and 2nd great-grandparents one generation after another, so it flows vertically
+  and works in a narrow window. Every person has name, born, birthplace, died, place of death and a **Living** checkbox.
+  Type a name to unlock the next generation, then press **Save chart**. One save validates everything first and applies nothing if
+  something is wrong, then creates a page for each new person (with history), links them as father or mother, and updates anyone you edited.
+  New person pages include the form automatically; `genealogy:chart` has a person picker.
+- a **Tree** view (the link above the form, or `?tree`): the traditional landscape chart with the standard numbering (1 = root, 2 = father,
+  3 = mother, 2n / 2n+1 = parents of n), still editable with **+ add** and ✎. `?redact` always shows the tree with living people as "Living".
+  `genealogy:chart_blank` is a blank tree to print and fill in by hand.
+- printing (⌘P): the form prints as three columns of compact cards; the tree prints on one landscape page.
+Who may save follows DokuWiki's permissions. **Living:** a person with a death date, or born more than 110 years ago, is saved as
+not living. Otherwise the checkbox decides, and it starts ticked for the person and their parents and unticked for older generations,
+so you will not share someone who may still be alive by mistake. Marriages, siblings and multiple spouses aren't modelled yet; the chart
+follows only the father and mother links.
 
 ## Bundled plugins
 These DokuWiki plugins ship inside the app and are copied into your wiki once, on first launch (or the first launch after

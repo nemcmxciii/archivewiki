@@ -232,6 +232,104 @@ class helper_plugin_awgenealogy extends Plugin
         return $html . '</div>';
     }
 
+    // ------------------------------------------------------------ form view (vertical, fillable)
+
+    private static $genTitles = [1 => 'Person', 2 => 'Parents', 3 => 'Grandparents', 4 => 'Great-grandparents'];
+
+    public function genTitle($g)
+    {
+        if (isset(self::$genTitles[$g])) return self::$genTitles[$g];
+        return $this->ordinal($g - 3) . ' great-grandparents';
+    }
+
+    private function ordinal($i)
+    {
+        if ($i % 100 >= 11 && $i % 100 <= 13) return $i . 'th';
+        $suffix = [1 => 'st', 2 => 'nd', 3 => 'rd'][$i % 10] ?? 'th';
+        return $i . $suffix;
+    }
+
+    /** ['Father's mother', 'Grandmother', 'Paternal line'] for ahnentafel number $n */
+    public function relation($n)
+    {
+        if ($n === 1) return ['Person', '', ''];
+        $g = (int)floor(log($n, 2)) + 1;
+        $fem = ($n % 2 === 1);
+        if ($g === 2) $title = $fem ? 'Mother' : 'Father';
+        elseif ($g === 3) $title = $fem ? 'Grandmother' : 'Grandfather';
+        elseif ($g === 4) $title = $fem ? 'Great-grandmother' : 'Great-grandfather';
+        else $title = $this->ordinal($g - 3) . ' great-grand' . ($fem ? 'mother' : 'father');
+        $bits = substr(decbin($n), 1);
+        $path = [];
+        foreach (str_split($bits) as $b) $path[] = $b === '0' ? 'father' : 'mother';
+        $pathText = $g > 2 ? ucfirst(implode("'s ", $path)) : '';
+        $line = $g > 2 ? ($bits[0] === '0' ? 'Paternal line' : 'Maternal line') : '';
+        return [$title, $pathText, $line];
+    }
+
+    private function card($n, $slot, $map)
+    {
+        [$title, $path, $line] = $this->relation($n);
+        $g = (int)floor(log($n, 2)) + 1;
+        $child = intdiv($n, 2);
+        $person = (is_array($slot) && isset($slot['person'])) ? $slot['person'] : null;
+        $id = $person ? $slot['id'] : '';
+        $private = $person && !empty($person['private']);
+        $f = ($person && !$private) ? $person['fields'] : [];
+        $blocked = ($n > 1 && !$person && !(isset($map[$child]['person'])));
+        $canEdit = $person ? (auth_quickaclcheck($id) >= AUTH_EDIT) : true;
+        $ro = (!$canEdit || $private) ? ' readonly="readonly"' : '';
+
+        $cls = 'awg-card' . ($blocked ? ' awg-blocked' : '') . ($person ? ' awg-has' : '');
+        $dis = ($blocked || $private) ? ' disabled="disabled"' : '';
+        $name = 'p[' . $n . ']';
+        $in = function ($key, $label, $value, $extra = '') use ($name, $ro, $dis) {
+            return '<label class="awg-f ' . $extra . '"><span>' . $label . '</span><input type="text" class="edit" name="' . $name . '[' . $key . ']" value="' . hsc($value) . '"' . $ro . $dis . ' /></label>';
+        };
+        $living = $person ? in_array(strtolower(trim($f['living'] ?? '')), ['yes', 'y', 'true', '1'], true) : ($g <= 2);
+
+        $html = '<fieldset class="' . $cls . '" data-n="' . $n . '" data-id="' . hsc($id) . '">' .
+            '<legend><span class="awg-num">' . $n . '</span> ' . hsc($title) .
+            ($path !== '' ? ' <small>' . hsc($path) . '</small>' : '') . '</legend>';
+        if ($private) return $html . '<p class="awg-note">Private</p></fieldset>';
+        $html .= $in('name', 'Full name', $f['name'] ?? '', 'awg-f-name');
+        $html .= '<div class="awg-pair">' . $in('born', 'Born', $f['born'] ?? '') . $in('birthplace', 'Birthplace', $f['birthplace'] ?? '') . '</div>';
+        $html .= '<div class="awg-pair">' . $in('died', 'Died', $f['died'] ?? '') . $in('deathplace', 'Place of death', $f['deathplace'] ?? '') . '</div>';
+        $html .= '<div class="awg-foot"><label class="awg-living"><input type="hidden" name="' . $name . '[living]" value="0"' . $dis . ' />' .
+            '<input type="checkbox" name="' . $name . '[living]" value="1"' . ($living ? ' checked="checked"' : '') . ($canEdit ? '' : ' disabled="disabled"') . $dis . ' /> Living</label>';
+        if ($id !== '') $html .= ' <a class="awg-open" href="' . wl($id) . '">Open page</a>';
+        elseif ($n > 1) $html .= ' <span class="awg-hint">' . ($blocked ? 'Fill in the previous generation first.' : 'Not created yet') . '</span>';
+        return $html . '</div></fieldset>';
+    }
+
+    public function viewSwitch($pageId, $current, array $extra = [])
+    {
+        $link = function ($label, $view) use ($pageId, $current, $extra) {
+            if ($view === $current) return '<b>' . $label . '</b>';
+            return '<a href="' . wl($pageId, $extra + ['awgview' => $view], false, '&amp;') . '">' . $label . '</a>';
+        };
+        return '<div class="awg-views">' . $link('Form', 'form') . ' · ' . $link('Tree', 'tree') . '</div>';
+    }
+
+    public function formHtml($rootId, $gens, $pageId, array $extra = [])
+    {
+        $map = $this->ancestors($rootId, $gens);
+        if ($map === null) {
+            return '<p class="awg-note">Person page <code>' . hsc($rootId) . '</code> doesn\'t exist yet.</p>';
+        }
+        $html = '<div class="awg-formwrap" data-root="' . hsc($rootId) . '" data-gens="' . (int)$gens . '" data-sectok="' . hsc(getSecurityToken()) . '">';
+        $html .= $this->viewSwitch($pageId, 'form', $extra);
+        $html .= '<form class="awg-form" action="#" method="post" autocomplete="off"><div class="awg-msg" role="status"></div>';
+        for ($g = 1; $g <= $gens; $g++) {
+            $html .= '<section class="awg-gensec"><h3>Generation ' . $g . ' · ' . hsc($this->genTitle($g)) . '</h3><div class="awg-cards">';
+            for ($n = 1 << ($g - 1); $n < (1 << $g); $n++) $html .= $this->card($n, $map[$n] ?? null, $map);
+            $html .= '</div></section>';
+        }
+        $html .= '<div class="awg-actions"><button type="submit" class="button awg-save" disabled="disabled">Save chart</button> ' .
+            '<span class="awg-dirty"></span></div></form></div>';
+        return $html;
+    }
+
     public function blankHtml($gens)
     {
         $html = '<div class="awg-chart awg-blank">';

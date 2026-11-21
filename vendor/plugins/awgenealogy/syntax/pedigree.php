@@ -3,7 +3,8 @@
 use dokuwiki\Extension\SyntaxPlugin;
 
 /**
- * {{pedigree>page_id?5&redact}}  ancestors chart (root optional: ?root=<id> in the URL, or a picker)
+ * {{pedigree>page_id?5&redact}}  ancestors: a fillable form (default) or a tree (?tree, or Tree link); redact = tree with living people hidden
+ * (root optional: ?root=<id> in the URL, or a picker)
  * {{pedigree>?blank}}            blank chart for printing
  * @license GPL 2 (http://www.gnu.org/licenses/gpl.html)
  */
@@ -26,11 +27,12 @@ class syntax_plugin_awgenealogy_pedigree extends SyntaxPlugin
             $opts = substr($arg, $q + 1);
             $arg = substr($arg, 0, $q);
         }
-        $data = ['root' => trim($arg), 'gens' => 5, 'redact' => false, 'blank' => false];
+        $data = ['root' => trim($arg), 'gens' => 5, 'redact' => false, 'blank' => false, 'tree' => false];
         foreach (explode('&', $opts) as $o) {
             $o = trim($o);
             if ($o === 'redact') $data['redact'] = true;
             elseif ($o === 'blank') $data['blank'] = true;
+            elseif ($o === 'tree') $data['tree'] = true;
             elseif (ctype_digit($o) && (int)$o >= 2 && (int)$o <= 6) $data['gens'] = (int)$o;
         }
         return $data;
@@ -54,7 +56,16 @@ class syntax_plugin_awgenealogy_pedigree extends SyntaxPlugin
             $renderer->doc .= $h->pickerHtml($ID);
             return true;
         }
-        $renderer->doc .= $h->chartHtml($root, $data['gens'], $data['redact']);
+        // The form is the default view; the tree is for looking and printing (and always used for redacted charts).
+        $view = $INPUT->str('awgview');
+        $tree = $data['redact'] || $data['tree'] ? true : ($view === 'tree');
+        if ($view === 'form' && !$data['redact']) $tree = false;
+        if ($tree) {
+            if (!$data['redact']) $renderer->doc .= $h->viewSwitch($ID, 'tree', $INPUT->has('root') ? ['root' => $INPUT->str('root')] : []);
+            $renderer->doc .= $h->chartHtml($root, $data['gens'], $data['redact']);
+        } else {
+            $renderer->doc .= $h->formHtml($root, $data['gens'], $ID, $INPUT->has('root') ? ['root' => $INPUT->str('root')] : []);
+        }
         return true;
     }
 }
