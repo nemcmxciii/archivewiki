@@ -1,0 +1,7 @@
+====== Journal ======
+
+**Today's Journal Entry** (File → Today's Journal Entry, ⇧⌘J) opens today's dated page.
+
+**New Note** (File → New Note, ⇧⌘N) captures a quick thought in a timestamped page. Rename or move it later if you like.
+
+Entries are regular wiki pages. Use **View → Search Archive** (⌘K) to find them later.

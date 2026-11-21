@@ -1,5 +1,10 @@
 ====== Journal ======
 
+<WRAP aw-journal-actions>
+[[archivewiki:action_today_journal|Today's Journal Entry]]
+[[archivewiki:action_new_note|New Note]]
+</WRAP>
+
 **Today's Journal Entry** (File → Today's Journal Entry, ⇧⌘J) opens today's dated page.
 
 **New Note** (File → New Note, ⇧⌘N) captures a quick thought in a timestamped page. Rename or move it later if you like.

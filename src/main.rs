@@ -46,13 +46,21 @@ const FAVICON_ICO: &[u8] = include_bytes!("../assets/branding/favicon.ico");
 const TOUCH_ICON_PNG: &[u8] = include_bytes!("../assets/branding/apple-touch-icon.png");
 // logo.png is wide (disc + "ArchiveWiki" wordmark, 2x for Retina). DokuWiki would draw it at native size, so
 // this rule shows it 64px high, and keeps the wiki title text only for screen readers (the wordmark replaces it).
-const BRANDING_VERSION: u32 = 3;
+const BRANDING_VERSION: u32 = 4;
 const LOGO_DARK_PNG: &[u8] = include_bytes!("../assets/branding/logo_dark.png");
 const THEME_CSS: &str = include_str!("theme.css");
 const BRANDING_CSS: &str = "\n/* ArchiveWiki branding v2: the logo image includes the wordmark */\n#dokuwiki__header .logo img { height: 64px; width: auto; }\n#dokuwiki__header .logo span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }\n";
+const JOURNAL_BUTTONS_CSS: &str = r#"
+/* ArchiveWiki journal action buttons */
+.wrap_aw-journal-actions { display: flex; flex-wrap: wrap; gap: .7rem; margin: 1.2rem 0; }
+.wrap_aw-journal-actions p { margin: 0; }
+.wrap_aw-journal-actions a { display: inline-block; padding: .65rem 1rem; border: 1px solid #294a67; border-radius: .45rem; background: #365b7a; color: #fff !important; font-weight: 600; text-decoration: none !important; }
+.wrap_aw-journal-actions a:hover { background: #294a67; }
+.wrap_aw-journal-actions a:focus-visible { outline: 3px solid #82b8e5; outline-offset: 2px; }
+"#;
 
 // Starter structure, installed once into the wiki; only files that don't exist yet are written.
-const STARTER_VERSION: u32 = 8;
+const STARTER_VERSION: u32 = 9;
 const STARTER: &[(&str, &str)] = &[
     ("data/pages/start.txt", include_str!("starter/start.txt")),
     ("data/pages/sidebar.txt", include_str!("starter/sidebar.txt")),
@@ -300,6 +308,9 @@ fn install_branding(wiki: &Path) {
     if have < 3 {
         text.push_str(THEME_CSS);
     }
+    if have < 4 {
+        text.push_str(JOURNAL_BUTTONS_CSS);
+    }
     let _ = fs::write(&css, text);
     let _ = fs::write(&marker, BRANDING_VERSION.to_string());
 }
@@ -358,6 +369,11 @@ fn install_starter(wiki: &Path) {
                 include_str!("starter/journal_start.txt"),
             ),
             (
+                "data/pages/journal/start.txt",
+                include_str!("starter/legacy/journal_start_v8.txt"),
+                include_str!("starter/journal_start.txt"),
+            ),
+            (
                 "data/pages/journal/_template.txt",
                 include_str!("starter/legacy/journal_template_v7.txt"),
                 include_str!("starter/journal_template.txt"),
@@ -401,6 +417,22 @@ fn install_plugins(l: &Layout) {
     }
     if changed {
         let _ = fs::write(&offered_file, offered.join("\n"));
+    }
+}
+
+/// Map the two Journal landing-page links to the app's existing quick-capture actions.
+fn journal_action(url: &str) -> Option<UserEvent> {
+    let (_, query) = url.split_once('?')?;
+    let query = query.split('#').next().unwrap_or(query);
+    let id = query.split('&').find_map(|part| {
+        let (key, value) = part.split_once('=')?;
+        (key == "id").then_some(value)
+    })?;
+    let id = id.replace("%3A", ":").replace("%3a", ":");
+    match id.as_str() {
+        "archivewiki:action_today_journal" => Some(UserEvent::TodayJournal),
+        "archivewiki:action_new_note" => Some(UserEvent::QuickNote),
+        _ => None,
     }
 }
 
@@ -1565,6 +1597,7 @@ fn run() -> Result<()> {
     let menu_proxy = event_loop.create_proxy();
     let update_proxy = event_loop.create_proxy();
     let hotkey_proxy = event_loop.create_proxy();
+    let action_proxy = event_loop.create_proxy();
     // Global shortcut (works while another app is in front). Quietly skipped if macOS or another app already owns it.
     let hotkey = HotKey::new(Some(HkMods::CONTROL | HkMods::ALT | HkMods::SUPER), HkCode::KeyN);
     let hotkey_manager = GlobalHotKeyManager::new().ok();
@@ -1606,7 +1639,16 @@ fn run() -> Result<()> {
         .with_url(&start_url(&layout, &origin))
         .with_initialization_script(&appearance_script(&appearance_mode(&layout)))
         .with_navigation_handler(move |u: String| {
-            if u.starts_with(&nav_origin) || u.starts_with("about:") || u.starts_with("blob:") || u.starts_with("data:") {
+            if let Some(path) = u.strip_prefix(&nav_origin).filter(|rest| {
+                rest.is_empty() || rest.starts_with('/') || rest.starts_with('?') || rest.starts_with('#')
+            }) {
+                if let Some(action) = journal_action(path) {
+                    let _ = action_proxy.send_event(action);
+                    false
+                } else {
+                    true
+                }
+            } else if u.starts_with("about:") || u.starts_with("blob:") || u.starts_with("data:") {
                 true
             } else {
                 open_external(&u);
