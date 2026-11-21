@@ -7,7 +7,7 @@ use sha2::{Digest, Sha256};
 use std::{
     collections::BTreeMap,
     fs, io,
-    path::{Path, PathBuf},
+    path::{Component, Path, PathBuf},
 };
 
 pub const MANIFEST: &str = "MANIFEST.sha256";
@@ -24,11 +24,16 @@ fn walk(root: &Path, rel: &Path, out: &mut Vec<PathBuf>) -> io::Result<()> {
     for e in fs::read_dir(root.join(rel))? {
         let e = e?;
         let r = rel.join(e.file_name());
-        let ft = e.file_type()?; // does not follow symlinks, so links are skipped
+        let ft = e.file_type()?; // does not follow symlinks, so links can be rejected safely
         if ft.is_dir() {
             walk(root, &r, out)?;
         } else if ft.is_file() {
             out.push(r);
+        } else if ft.is_symlink() {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("snapshot contains a symbolic link: {}", r.display()),
+            ));
         }
     }
     Ok(())
@@ -38,8 +43,20 @@ fn walk(root: &Path, rel: &Path, out: &mut Vec<PathBuf>) -> io::Result<()> {
 pub fn list_files(root: &Path) -> io::Result<Vec<PathBuf>> {
     let mut files = Vec::new();
     for top in TOP_DIRS {
-        if root.join(top).is_dir() {
-            walk(root, Path::new(top), &mut files)?;
+        let path = root.join(top);
+        match fs::symlink_metadata(&path) {
+            Ok(meta) if meta.file_type().is_dir() => {
+                walk(root, Path::new(top), &mut files)?;
+            }
+            Ok(meta) if meta.file_type().is_symlink() => {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!("snapshot contains a symbolic link: {}", path.display()),
+                ));
+            }
+            Ok(_) => {}
+            Err(e) if e.kind() == io::ErrorKind::NotFound => {}
+            Err(e) => return Err(e),
         }
     }
     files.sort();
@@ -78,17 +95,46 @@ impl Verification {
 
 /// Recompute every hash under root and compare with root/MANIFEST.sha256.
 pub fn verify_tree(root: &Path) -> Result<Verification> {
-    let text = fs::read_to_string(root.join(MANIFEST)).context("this folder has no MANIFEST.sha256")?;
+    let manifest = root.join(MANIFEST);
+    let metadata = fs::symlink_metadata(&manifest).context("this folder has no MANIFEST.sha256")?;
+    if !metadata.file_type().is_file() {
+        anyhow::bail!("MANIFEST.sha256 must be a regular file");
+    }
+    let text = fs::read_to_string(&manifest).context("reading MANIFEST.sha256")?;
     let mut expected: BTreeMap<String, String> = BTreeMap::new();
     for line in text.lines() {
-        if let Some((hash, path)) = line.split_once("  ") {
-            expected.insert(path.to_string(), hash.to_string());
+        let (hash, path) = line
+            .split_once("  ")
+            .context("invalid entry in MANIFEST.sha256")?;
+        if hash.len() != 64 || !hash.bytes().all(|b| b.is_ascii_hexdigit()) {
+            anyhow::bail!("invalid SHA-256 value in MANIFEST.sha256");
+        }
+        let rel = Path::new(path);
+        let mut components = rel.components();
+        let top = components.next();
+        if !matches!(top, Some(Component::Normal(c)) if c == "data" || c == "conf")
+            || components.clone().next().is_none()
+            || components.any(|c| !matches!(c, Component::Normal(_)))
+            || path.contains('\\')
+        {
+            anyhow::bail!("unsafe path in MANIFEST.sha256: {path}");
+        }
+        if expected.insert(path.to_string(), hash.to_ascii_lowercase()).is_some() {
+            anyhow::bail!("duplicate path in MANIFEST.sha256: {path}");
         }
     }
     let mut v = Verification::default();
     for (path, want) in &expected {
         let p = root.join(path);
-        if !p.is_file() {
+        let metadata = match fs::symlink_metadata(&p) {
+            Ok(meta) => meta,
+            Err(e) if e.kind() == io::ErrorKind::NotFound => {
+                v.missing.push(path.clone());
+                continue;
+            }
+            Err(e) => return Err(e).with_context(|| format!("checking {}", p.display())),
+        };
+        if !metadata.file_type().is_file() {
             v.missing.push(path.clone());
             continue;
         }
