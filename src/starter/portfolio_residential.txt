@@ -1,29 +1,33 @@
 ====== Residential history ======
 
-Keep address history handy for housing applications. Forms vary, so fill only the details you need.
+Keep the address details most often requested for housing applications. Forms vary, so only enter what you need.
 
-===== Current residence =====
+===== Add a residence =====
 
-^ Information ^ Details ^
-| Dates lived here (month/year) |  |
-| Full address (street, unit, city, state, ZIP) |  |
-| Residence type (rent, own, other) |  |
-| Monthly rent or mortgage (optional) |  |
-| Landlord or property manager (optional) |  |
-| Contact phone or email (optional) |  |
-| Reason for moving (optional) |  |
+Use one entry for each address. Leave optional fields blank when they don't apply.
 
-===== Previous residence =====
+<WRAP aw-residence-form>
+<form>
+action template portfolio:residential:entry_template portfolio:residential:residence_@@Record number@@
+thanks "Residence saved. Open the new record below to review or edit it."
+hiddenautoinc "Record number" 0000
+hidden "recordtype" =residence
+textbox "Street address"
+textbox "Unit or apartment" !
+textbox "City, state, ZIP"
+select "Housing type" "Rent|Own|Other"
+textbox "From (MM/YYYY)"
+textbox "To (MM/YYYY; leave blank if current)" !
+textbox "Monthly rent or mortgage (optional)" !
+textbox "Landlord or property manager (optional)" !
+textbox "Landlord phone or email (optional)" !
+textarea "Reason for moving (optional)" x3 !
+submit "Save residence"
+</form>
+</WRAP>
 
-^ Information ^ Details ^
-| Dates lived here (month/year) |  |
-| Full address (street, unit, city, state, ZIP) |  |
-| Residence type (rent, own, other) |  |
-| Monthly rent or mortgage (optional) |  |
-| Landlord or property manager (optional) |  |
-| Contact phone or email (optional) |  |
-| Reason for moving (optional) |  |
+===== Saved residences =====
 
-**To add another address:** copy the Previous residence heading and table, then fill in the copy.
+{{topic>portfolio:residential?residence}}
 
-**Privacy:** Don't store Social Security numbers, account numbers, or contact details you don't need.
+**Privacy:** Only store information you need. Keep Social Security and account numbers out of the wiki.

@@ -84,7 +84,7 @@ const BROKEN_JOURNAL_BUTTON_CARDS_CSS: &str = r#"
 "#;
 
 // Starter structure, installed once into the wiki; only files that don't exist yet are written.
-const STARTER_VERSION: u32 = 13;
+const STARTER_VERSION: u32 = 15;
 const STARTER: &[(&str, &str)] = &[
     ("data/pages/start.txt", include_str!("starter/start.txt")),
     ("data/pages/sidebar.txt", include_str!("starter/sidebar.txt")),
@@ -96,6 +96,7 @@ const STARTER: &[(&str, &str)] = &[
     ("data/pages/genealogy/chart_blank.txt", include_str!("starter/genealogy_chart_blank.txt")),
     ("data/pages/portfolio/start.txt", include_str!("starter/portfolio_start.txt")),
     ("data/pages/portfolio/residential.txt", include_str!("starter/portfolio_residential.txt")),
+    ("data/pages/portfolio/residential/entry_template.txt", include_str!("starter/portfolio_residential_entry_template.txt")),
     ("data/pages/portfolio/employment.txt", include_str!("starter/portfolio_employment.txt")),
     ("data/pages/portfolio/credentials.txt", include_str!("starter/portfolio_credentials.txt")),
     ("data/pages/reference/start.txt", include_str!("starter/reference_start.txt")),
@@ -414,6 +415,11 @@ fn install_starter(wiki: &Path) {
             (
                 "data/pages/portfolio/start.txt",
                 include_str!("starter/legacy/portfolio_start_v2.txt"),
+                include_str!("starter/portfolio_start.txt"),
+            ),
+            (
+                "data/pages/portfolio/start.txt",
+                include_str!("starter/legacy/portfolio_start_v3.txt"),
                 include_str!("starter/portfolio_start.txt"),
             ),
             (

@@ -1,0 +1,16 @@
+====== Residence record #@@Record number@@ ======
+
+^ Information ^ Details ^
+| Street address | @@Street address@@ |
+| Unit or apartment | @@Unit or apartment@@ |
+| City, state, ZIP | @@City, state, ZIP@@ |
+| Housing type | @@Housing type@@ |
+| Dates lived here | @@From (MM/YYYY)@@ – @@To (MM/YYYY; leave blank if current)@@ |
+| Monthly rent or mortgage | @@Monthly rent or mortgage (optional)@@ |
+| Landlord or property manager | @@Landlord or property manager (optional)@@ |
+| Landlord phone or email | @@Landlord phone or email (optional)@@ |
+| Reason for moving | @@Reason for moving (optional)@@ |
+
+{{tag>@@recordtype@@}}
+
+**Privacy:** Keep Social Security and account numbers out of the wiki.
