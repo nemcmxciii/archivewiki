@@ -46,7 +46,7 @@ const FAVICON_ICO: &[u8] = include_bytes!("../assets/branding/favicon.ico");
 const TOUCH_ICON_PNG: &[u8] = include_bytes!("../assets/branding/apple-touch-icon.png");
 // logo.png is wide (disc + "ArchiveWiki" wordmark, 2x for Retina). DokuWiki would draw it at native size, so
 // this rule shows it 64px high, and keeps the wiki title text only for screen readers (the wordmark replaces it).
-const BRANDING_VERSION: u32 = 4;
+const BRANDING_VERSION: u32 = 5;
 const LOGO_DARK_PNG: &[u8] = include_bytes!("../assets/branding/logo_dark.png");
 const THEME_CSS: &str = include_str!("theme.css");
 const BRANDING_CSS: &str = "\n/* ArchiveWiki branding v2: the logo image includes the wordmark */\n#dokuwiki__header .logo img { height: 64px; width: auto; }\n#dokuwiki__header .logo span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }\n";
@@ -58,9 +58,20 @@ const JOURNAL_BUTTONS_CSS: &str = r#"
 .wrap_aw-journal-actions a:hover { background: #294a67; }
 .wrap_aw-journal-actions a:focus-visible { outline: 3px solid #82b8e5; outline-offset: 2px; }
 "#;
+const JOURNAL_BUTTON_CARDS_CSS: &str = r#"
+/* ArchiveWiki journal action cards v2 */
+.wrap_aw-journal-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr)); gap: .85rem; max-width: 42rem; margin: 1.4rem 0 1.6rem; }
+.wrap_aw-journal-actions .wrap_aw-journal-action { box-sizing: border-box; min-width: 0; padding: 1rem 1.1rem; border: 1px solid #d7e0e8; border-left: 4px solid #547b9d; border-radius: .65rem; background: #f6f8fa; transition: border-color .16s ease, background-color .16s ease, transform .16s ease; }
+.wrap_aw-journal-actions .wrap_aw-journal-action p { margin: .25rem 0 0; color: #596b7b; font-size: .92em; }
+.wrap_aw-journal-actions .wrap_aw-journal-action a { display: block; padding: 0; border: 0; border-radius: 0; background: transparent; color: #294a67 !important; font-size: 1.08em; font-weight: 650; text-decoration: none !important; }
+.wrap_aw-journal-actions .wrap_aw-journal-action a::after { content: "  ›"; color: #547b9d; }
+.wrap_aw-journal-actions .wrap_aw-journal-action:hover { border-color: #9db3c6; border-left-color: #365b7a; background: #eef3f7; transform: translateY(-1px); }
+.wrap_aw-journal-actions .wrap_aw-journal-action a:focus-visible { outline: 3px solid #82b8e5; outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) { .wrap_aw-journal-actions .wrap_aw-journal-action { transition: none; } }
+"#;
 
 // Starter structure, installed once into the wiki; only files that don't exist yet are written.
-const STARTER_VERSION: u32 = 9;
+const STARTER_VERSION: u32 = 10;
 const STARTER: &[(&str, &str)] = &[
     ("data/pages/start.txt", include_str!("starter/start.txt")),
     ("data/pages/sidebar.txt", include_str!("starter/sidebar.txt")),
@@ -311,6 +322,9 @@ fn install_branding(wiki: &Path) {
     if have < 4 {
         text.push_str(JOURNAL_BUTTONS_CSS);
     }
+    if have < 5 {
+        text.push_str(JOURNAL_BUTTON_CARDS_CSS);
+    }
     let _ = fs::write(&css, text);
     let _ = fs::write(&marker, BRANDING_VERSION.to_string());
 }
@@ -371,6 +385,11 @@ fn install_starter(wiki: &Path) {
             (
                 "data/pages/journal/start.txt",
                 include_str!("starter/legacy/journal_start_v8.txt"),
+                include_str!("starter/journal_start.txt"),
+            ),
+            (
+                "data/pages/journal/start.txt",
+                include_str!("starter/legacy/journal_start_v9.txt"),
                 include_str!("starter/journal_start.txt"),
             ),
             (

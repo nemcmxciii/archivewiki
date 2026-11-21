@@ -1,12 +1,16 @@
 ====== Journal ======
 
+Capture a longer reflection or jot down a quick thought. Your entries stay in your private archive and are searchable.
+
 <WRAP aw-journal-actions>
+<WRAP aw-journal-action>
 [[archivewiki:action_today_journal|Today's Journal Entry]]
+//Open today's dated page//
+</WRAP>
+<WRAP aw-journal-action>
 [[archivewiki:action_new_note|New Note]]
+//Capture a quick thought//
+</WRAP>
 </WRAP>
 
-**Today's Journal Entry** (File → Today's Journal Entry, ⇧⌘J) opens today's dated page.
-
-**New Note** (File → New Note, ⇧⌘N) captures a quick thought in a timestamped page. Rename or move it later if you like.
-
-Entries are regular wiki pages. Use **View → Search Archive** (⌘K) to find them later.
+Use **⇧⌘J** for today's entry, **⇧⌘N** for a quick note, or **⌘K** to search your archive.
