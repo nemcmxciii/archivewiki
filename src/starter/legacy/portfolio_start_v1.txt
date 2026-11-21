@@ -1,0 +1,9 @@
+====== Portfolio ======
+
+Standard information on hand for applications.
+
+  * [[portfolio:residential|Residential history]]
+  * [[portfolio:employment|Employment history]]
+  * [[portfolio:credentials|Credentials]]
+
+//Tip: keep account numbers, ID numbers and similar details out of the wiki unless your Mac's disk is encrypted (FileVault).//

@@ -1,9 +1,22 @@
 ====== Portfolio ======
 
-Standard information on hand for applications.
+Keep the key dates and details you often need for forms and applications.
 
-  * [[portfolio:residential|Residential history]]
-  * [[portfolio:employment|Employment history]]
-  * [[portfolio:credentials|Credentials]]
+Open a section to add or update an entry. Use one row for each address, job, or qualification; add rows as needed.
 
-//Tip: keep account numbers, ID numbers and similar details out of the wiki unless your Mac's disk is encrypted (FileVault).//
+<WRAP aw-portfolio-actions>
+<WRAP aw-portfolio-action>
+[[portfolio:residential|Residential history]]
+//Addresses and dates for applications//
+</WRAP>
+<WRAP aw-portfolio-action>
+[[portfolio:employment|Employment history]]
+//Employers, roles, and dates//
+</WRAP>
+<WRAP aw-portfolio-action>
+[[portfolio:credentials|Credentials]]
+//Degrees, licenses, and certifications//
+</WRAP>
+</WRAP>
+
+**Privacy:** Keep Social Security, bank, and account numbers out of the wiki. Protect your Mac with FileVault and keep regular backups.
