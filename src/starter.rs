@@ -37,6 +37,20 @@ pub fn retire_legacy(wiki: &Path, legacy: &[(&str, &str)]) -> usize {
     removed
 }
 
+/// Replace shipped starter files only when their contents still match the previous shipped version.
+/// Returns how many files were updated; customized or missing files are left alone.
+pub fn replace_if_unchanged(wiki: &Path, updates: &[(&str, &str, &str)]) -> usize {
+    let mut replaced = 0;
+    for (rel, previous, current) in updates {
+        let path = wiki.join(rel);
+        let Ok(existing) = fs::read_to_string(&path) else { continue };
+        if norm(&existing) == norm(previous) && fs::write(&path, current).is_ok() {
+            replaced += 1;
+        }
+    }
+    replaced
+}
+
 /// Write each (relative path, text) that doesn't exist yet. Returns how many files were written.
 pub fn write_missing(wiki: &Path, files: &[(&str, &str)]) -> usize {
     let mut written = 0;
