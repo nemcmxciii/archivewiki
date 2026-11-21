@@ -1,0 +1,33 @@
+====== Employment history ======
+
+Keep the details most often requested for work history. Forms vary, so fill only the fields that apply.
+
+===== Current or most recent job =====
+
+^ Information ^ Details ^
+| Employer and work location |  |
+| Job title |  |
+| Dates worked (month/year) |  |
+| Main duties and accomplishments |  |
+| Supervisor or reference name (optional) |  |
+| Reference phone or email (optional) |  |
+| Hours or work schedule (optional) |  |
+| Pay rate and pay period (optional) |  |
+| Reason for leaving (previous jobs only; optional) |  |
+
+===== Previous job =====
+
+^ Information ^ Details ^
+| Employer and work location |  |
+| Job title |  |
+| Dates worked (month/year) |  |
+| Main duties and accomplishments |  |
+| Supervisor or reference name (optional) |  |
+| Reference phone or email (optional) |  |
+| Hours or work schedule (optional) |  |
+| Pay rate and pay period (optional) |  |
+| Reason for leaving (optional) |  |
+
+**To add another job:** copy the Previous job heading and table, then fill in the copy.
+
+**Privacy:** Record pay only if useful for an application. Keep Social Security and account numbers out of the wiki.

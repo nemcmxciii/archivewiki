@@ -1,0 +1,29 @@
+====== Residential history ======
+
+Keep address history handy for housing applications. Forms vary, so fill only the details you need.
+
+===== Current residence =====
+
+^ Information ^ Details ^
+| Dates lived here (month/year) |  |
+| Full address (street, unit, city, state, ZIP) |  |
+| Residence type (rent, own, other) |  |
+| Monthly rent or mortgage (optional) |  |
+| Landlord or property manager (optional) |  |
+| Contact phone or email (optional) |  |
+| Reason for moving (optional) |  |
+
+===== Previous residence =====
+
+^ Information ^ Details ^
+| Dates lived here (month/year) |  |
+| Full address (street, unit, city, state, ZIP) |  |
+| Residence type (rent, own, other) |  |
+| Monthly rent or mortgage (optional) |  |
+| Landlord or property manager (optional) |  |
+| Contact phone or email (optional) |  |
+| Reason for moving (optional) |  |
+
+**To add another address:** copy the Previous residence heading and table, then fill in the copy.
+
+**Privacy:** Don't store Social Security numbers, account numbers, or contact details you don't need.

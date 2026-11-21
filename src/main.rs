@@ -84,7 +84,7 @@ const BROKEN_JOURNAL_BUTTON_CARDS_CSS: &str = r#"
 "#;
 
 // Starter structure, installed once into the wiki; only files that don't exist yet are written.
-const STARTER_VERSION: u32 = 11;
+const STARTER_VERSION: u32 = 13;
 const STARTER: &[(&str, &str)] = &[
     ("data/pages/start.txt", include_str!("starter/start.txt")),
     ("data/pages/sidebar.txt", include_str!("starter/sidebar.txt")),
@@ -410,6 +410,41 @@ fn install_starter(wiki: &Path) {
                 "data/pages/portfolio/start.txt",
                 include_str!("starter/legacy/portfolio_start_v1.txt"),
                 include_str!("starter/portfolio_start.txt"),
+            ),
+            (
+                "data/pages/portfolio/start.txt",
+                include_str!("starter/legacy/portfolio_start_v2.txt"),
+                include_str!("starter/portfolio_start.txt"),
+            ),
+            (
+                "data/pages/portfolio/residential.txt",
+                include_str!("starter/legacy/portfolio_residential_v1.txt"),
+                include_str!("starter/portfolio_residential.txt"),
+            ),
+            (
+                "data/pages/portfolio/residential.txt",
+                include_str!("starter/legacy/portfolio_residential_v2.txt"),
+                include_str!("starter/portfolio_residential.txt"),
+            ),
+            (
+                "data/pages/portfolio/employment.txt",
+                include_str!("starter/legacy/portfolio_employment_v1.txt"),
+                include_str!("starter/portfolio_employment.txt"),
+            ),
+            (
+                "data/pages/portfolio/employment.txt",
+                include_str!("starter/legacy/portfolio_employment_v2.txt"),
+                include_str!("starter/portfolio_employment.txt"),
+            ),
+            (
+                "data/pages/portfolio/credentials.txt",
+                include_str!("starter/legacy/portfolio_credentials_v1.txt"),
+                include_str!("starter/portfolio_credentials.txt"),
+            ),
+            (
+                "data/pages/portfolio/credentials.txt",
+                include_str!("starter/legacy/portfolio_credentials_v2.txt"),
+                include_str!("starter/portfolio_credentials.txt"),
             ),
             (
                 "data/pages/journal/_template.txt",

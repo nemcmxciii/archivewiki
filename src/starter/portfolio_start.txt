@@ -2,7 +2,7 @@
 
 Keep the key dates and details you often need for forms and applications.
 
-Open a section to add or update an entry. Use one row for each address, job, or qualification; add rows as needed.
+Open a section to add or update an entry. Copy a record block when you need another address, job, or qualification.
 
 <WRAP aw-portfolio-actions>
 <WRAP aw-portfolio-action>
