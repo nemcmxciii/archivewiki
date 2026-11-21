@@ -14,3 +14,9 @@ Capture a longer reflection or jot down a quick thought. Your entries stay in yo
 </WRAP>
 
 Use **⇧⌘J** for today's entry, **⇧⌘N** for a quick note, or **⌘K** to search your archive.
+
+===== Recent entries =====
+
+New notes and dated entries appear here automatically, with the newest first.
+
+{{topic>journal?journal&sortkey=cdate&sortorder=descending}}

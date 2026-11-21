@@ -84,7 +84,7 @@ const BROKEN_JOURNAL_BUTTON_CARDS_CSS: &str = r#"
 "#;
 
 // Starter structure, installed once into the wiki; only files that don't exist yet are written.
-const STARTER_VERSION: u32 = 16;
+const STARTER_VERSION: u32 = 17;
 const STARTER: &[(&str, &str)] = &[
     ("data/pages/start.txt", include_str!("starter/start.txt")),
     ("data/pages/sidebar.txt", include_str!("starter/sidebar.txt")),
@@ -410,6 +410,11 @@ fn install_starter(wiki: &Path) {
                 include_str!("starter/journal_start.txt"),
             ),
             (
+                "data/pages/journal/start.txt",
+                include_str!("starter/legacy/journal_start_v10.txt"),
+                include_str!("starter/journal_start.txt"),
+            ),
+            (
                 "data/pages/portfolio/start.txt",
                 include_str!("starter/legacy/portfolio_start_v1.txt"),
                 include_str!("starter/portfolio_start.txt"),
@@ -467,6 +472,11 @@ fn install_starter(wiki: &Path) {
             (
                 "data/pages/journal/_template.txt",
                 include_str!("starter/legacy/journal_template_v7.txt"),
+                include_str!("starter/journal_template.txt"),
+            ),
+            (
+                "data/pages/journal/_template.txt",
+                include_str!("starter/legacy/journal_template_v8.txt"),
                 include_str!("starter/journal_template.txt"),
             ),
         ],
