@@ -117,6 +117,11 @@ Edit or delete any of it freely: nothing is recreated or overwritten afterwards.
 When upgrading from an earlier layout (Inbox, People, Records, Field Manual), pages from the old layout are removed only if you never
 edited them; anything you changed stays where it is.
 
+The local WEB Bible includes the standard 66 books plus 15 Deuterocanonical books or sections from the public-domain
+WEB Updated 2024 edition. The Greek Esther and Daniel are provided as clearly labeled complete editions alongside the
+standard WEB versions. These chapter pages are added only when missing; existing pages and personal study notes are
+left untouched.
+
 ## Search
 **View → Search Archive** (⌘K) jumps to the wiki's search box (or to the search page if the current page has none). Search stays inside the app:
 ArchiveWiki deliberately does *not* add your pages to macOS Spotlight, because Spotlight would show page titles and text outside the app

@@ -1,0 +1,11 @@
+====== Esther (Greek edition) ======
+
+[[bible:start|WEB Bible]]
+
+This is the full Greek Septuagint edition of Esther, including its Deuterocanonical additions. The existing Esther page remains the standard WEB edition.
+
+===== Choose a chapter =====
+
+[[bible:esther_greek:1|1]] · [[bible:esther_greek:2|2]] · [[bible:esther_greek:3|3]] · [[bible:esther_greek:4|4]] · [[bible:esther_greek:5|5]] · [[bible:esther_greek:6|6]] · [[bible:esther_greek:7|7]] · [[bible:esther_greek:8|8]] · [[bible:esther_greek:9|9]] · [[bible:esther_greek:10|10]]
+
+[[bible:esther_greek:1|Begin reading Esther (Greek edition) →]]

@@ -3,6 +3,7 @@ compile_error!("ArchiveWiki targets macOS only.");
 
 mod snapshot;
 mod starter;
+mod deuterocanon;
 
 use anyhow::{anyhow, bail, Context, Result};
 use muda::{
@@ -84,7 +85,7 @@ const BROKEN_JOURNAL_BUTTON_CARDS_CSS: &str = r#"
 "#;
 
 // Starter structure, installed once into the wiki; only files that don't exist yet are written.
-const STARTER_VERSION: u32 = 19;
+const STARTER_VERSION: u32 = 20;
 const STARTER: &[(&str, &str)] = &[
     ("data/pages/start.txt", include_str!("starter/start.txt")),
     ("data/pages/sidebar.txt", include_str!("starter/sidebar.txt")),
@@ -2923,6 +2924,11 @@ fn install_starter(wiki: &Path) {
                 include_str!("starter/bible/start.txt"),
             ),
             (
+                "data/pages/bible/start.txt",
+                include_str!("starter/legacy/bible_start_v19.txt"),
+                include_str!("starter/bible/start.txt"),
+            ),
+            (
                 "data/pages/bible/notes/start.txt",
                 include_str!("starter/legacy/bible_notes_start_v18.txt"),
                 include_str!("starter/bible/notes/start.txt"),
@@ -3021,6 +3027,7 @@ fn install_starter(wiki: &Path) {
     );
     starter::retire_legacy(wiki, LEGACY);
     starter::write_missing(wiki, STARTER);
+    starter::write_missing(wiki, deuterocanon::PAGES);
     let _ = fs::write(&marker, STARTER_VERSION.to_string());
 }
 

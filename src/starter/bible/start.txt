@@ -1,6 +1,6 @@
 ====== World English Bible ======
 
-A quiet place to read and study the World English Bible (WEB). This is the standard 66-book edition, without the Deuterocanon. The text is stored locally in ArchiveWiki and can be read offline.
+A quiet place to read and study the World English Bible (WEB). This edition includes the standard 66 books and the Deuterocanonical books and sections. The text is stored locally in ArchiveWiki and can be read offline.
 
 ===== Start reading =====
 
@@ -9,6 +9,10 @@ A quiet place to read and study the World English Bible (WEB). This is the stand
 ===== Old Testament =====
 
 [[bible:genesis:start|Genesis]] · [[bible:exodus:start|Exodus]] · [[bible:leviticus:start|Leviticus]] · [[bible:numbers:start|Numbers]] · [[bible:deuteronomy:start|Deuteronomy]] · [[bible:joshua:start|Joshua]] · [[bible:judges:start|Judges]] · [[bible:ruth:start|Ruth]] · [[bible:1_samuel:start|1 Samuel]] · [[bible:2_samuel:start|2 Samuel]] · [[bible:1_kings:start|1 Kings]] · [[bible:2_kings:start|2 Kings]] · [[bible:1_chronicles:start|1 Chronicles]] · [[bible:2_chronicles:start|2 Chronicles]] · [[bible:ezra:start|Ezra]] · [[bible:nehemiah:start|Nehemiah]] · [[bible:esther:start|Esther]] · [[bible:job:start|Job]] · [[bible:psalms:start|Psalms]] · [[bible:proverbs:start|Proverbs]] · [[bible:ecclesiastes:start|Ecclesiastes]] · [[bible:song_of_solomon:start|Song of Solomon]] · [[bible:isaiah:start|Isaiah]] · [[bible:jeremiah:start|Jeremiah]] · [[bible:lamentations:start|Lamentations]] · [[bible:ezekiel:start|Ezekiel]] · [[bible:daniel:start|Daniel]] · [[bible:hosea:start|Hosea]] · [[bible:joel:start|Joel]] · [[bible:amos:start|Amos]] · [[bible:obadiah:start|Obadiah]] · [[bible:jonah:start|Jonah]] · [[bible:micah:start|Micah]] · [[bible:nahum:start|Nahum]] · [[bible:habakkuk:start|Habakkuk]] · [[bible:zephaniah:start|Zephaniah]] · [[bible:haggai:start|Haggai]] · [[bible:zechariah:start|Zechariah]] · [[bible:malachi:start|Malachi]]
+
+===== Deuterocanonical books and sections =====
+
+[[bible:tobit:start|Tobit]] · [[bible:judith:start|Judith]] · [[bible:esther_greek:start|Esther (Greek edition)]] · [[bible:wisdom:start|Wisdom]] · [[bible:sirach:start|Sirach]] · [[bible:baruch:start|Baruch and the Letter of Jeremiah]] · [[bible:1_maccabees:start|1 Maccabees]] · [[bible:2_maccabees:start|2 Maccabees]] · [[bible:1_esdras:start|1 Esdras]] · [[bible:prayer_of_manasses:start|Prayer of Manasses]] · [[bible:psalm_151:start|Psalm 151]] · [[bible:3_maccabees:start|3 Maccabees]] · [[bible:2_esdras:start|2 Esdras]] · [[bible:4_maccabees:start|4 Maccabees]] · [[bible:daniel_greek:start|Daniel (Greek edition)]]
 
 ===== New Testament =====
 
@@ -23,4 +27,4 @@ A quiet place to read and study the World English Bible (WEB). This is the stand
 
 ===== About this edition =====
 
-World English Bible (WEB), without Deuterocanon; completed 2023. The supplied edition metadata identifies this translation as public domain. Scripture text is kept separate from personal notes so it remains readable and unchanged.
+World English Bible Updated (WEB Updated), 2024 edition. The source archive identifies this edition as public domain and includes the Deuterocanonical books and sections. Esther (Greek edition) and Daniel (Greek edition) are complete Greek-text editions that include their Deuterocanonical material; the standard WEB Esther and Daniel pages remain available. Scripture text is kept separate from personal notes so it remains readable and unchanged.
