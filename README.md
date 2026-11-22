@@ -72,9 +72,10 @@ Admin → Extension Manager after the first launch.
 - **Automatic:** once a day while the app is open (first check shortly after launch), ArchiveWiki saves `data/` and `conf/` to
   `~/Documents/ArchiveWiki Backups/auto-backup-<time>.zip` and keeps the newest 10. Toggle: File → *Back Up Automatically (Daily)*.
   Manual backups (*Back Up Wiki…*) and the safety backups made before updates/restores are never deleted automatically.
-- **Restore:** File → *Restore from Backup…* lets you pick a zip made by this app. It checks the file, asks you to confirm, saves
-  your current wiki as a `pre-restore` backup, swaps the data in, and restarts the server. If unpacking fails, the previous data is put back.
-  (The data that was replaced is also kept in `Application Support/ArchiveWiki/restore-previous/` until the next restore.)
+- **Restore:** File → *Restore from Backup…* lets you pick a zip made by this app. It checks the file, rejects unsafe paths and
+  symbolic links, asks you to confirm, saves your current wiki as a `pre-restore` backup, stages the archive, then replaces `data/`
+  and `conf/` together before restarting the server. If staging or replacement fails, the previous folders are put back.
+  (The data and configuration that were replaced are kept in `Application Support/ArchiveWiki/restore-previous/` until the next restore.)
 - Backups are plain zips on your own disk; turn on FileVault if you want them encrypted at rest.
 
 ## App lock (optional)
@@ -94,7 +95,7 @@ The prompt comes from a small helper (`helper/auth.swift`) built into the app by
 **File → Create Archive Snapshot…** saves `~/Documents/ArchiveWiki Snapshots/ArchiveWiki-snapshot-<time>.zip`: your `data/` and `conf/`
 (pages, older revisions, media, settings; no caches), plus `MANIFEST.sha256` (a SHA-256 for every file) and `SNAPSHOT.txt`
 (when, app/DokuWiki/PHP versions, file count). The zip's own checksum is saved beside it as `<name>.zip.sha256`.
-**File → Verify Snapshot…** unpacks a snapshot and recomputes every hash, reporting changed, missing or unexpected files.
+**File → Verify Snapshot…** safely stages a snapshot and recomputes every hash, reporting changed, missing or unexpected files.
 You can also verify with no ArchiveWiki at all: unzip, then run `shasum -a 256 -c MANIFEST.sha256` inside the folder.
 A snapshot is also a valid backup: *Restore from Backup…* accepts it.
 

@@ -3715,7 +3715,7 @@ fn restore_flow(proxy: &EventLoopProxy<UserEvent>) {
     }
     let name = zip.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
     let msg = format!(
-        "Restore \"{name}\"?\n\nYour current wiki is saved first (a pre-restore backup), then replaced by this backup. Pages created since the backup was made will be removed from the wiki."
+        "Restore \"{name}\"?\n\nYour current wiki is saved first (a pre-restore backup), then its pages, media, and settings are replaced with the contents of this backup. Changes made since the backup was created will be removed."
     );
     let script = format!(
         "display dialog \"{}\" with title \"{APP_NAME}\" buttons {{\"Cancel\", \"Restore\"}} default button \"Cancel\" cancel button \"Cancel\" with icon caution",
@@ -3728,60 +3728,169 @@ fn restore_flow(proxy: &EventLoopProxy<UserEvent>) {
     }
 }
 
-/// Only zips made by this app (entries under data/ and conf/, no odd paths) are accepted.
-fn validate_backup_zip(zip: &Path) -> Result<()> {
-    let out = Command::new("/usr/bin/unzip").arg("-Z1").arg(zip).output()?;
-    if !out.status.success() {
+#[derive(Debug)]
+struct ArchiveEntry {
+    name: String,
+    is_dir: bool,
+}
+
+/// Inspect a ZIP before touching the filesystem. zipinfo exposes Unix file types, so
+/// archives containing symlinks or special files are rejected before extraction.
+fn inspect_archive(zip: &Path) -> Result<Vec<ArchiveEntry>> {
+    let names = Command::new("/usr/bin/zipinfo").arg("-1").arg(zip).output()?;
+    if !names.status.success() {
         bail!("It isn't a readable zip file.");
     }
-    let list = String::from_utf8_lossy(&out.stdout);
+    let names = String::from_utf8(names.stdout).context("ZIP contains filenames that aren't valid UTF-8")?;
+    let details = Command::new("/usr/bin/zipinfo").arg("-s").arg(zip).output()?;
+    if !details.status.success() {
+        bail!("The ZIP entry details couldn't be read.");
+    }
+    let details = String::from_utf8(details.stdout).context("ZIP entry details aren't valid UTF-8")?;
+    let mut kinds = Vec::new();
+    for line in details.lines() {
+        let b = line.as_bytes();
+        if b.len() < 10 || !matches!(b[0], b'-' | b'd' | b'l' | b'b' | b'c' | b'p' | b's' | b'?') {
+            continue;
+        }
+        if !b[1..10].iter().all(|c| matches!(*c, b'r' | b'w' | b'x' | b's' | b'S' | b't' | b'T' | b'-' | b'?')) {
+            continue;
+        }
+        kinds.push(b[0]);
+    }
+    let names: Vec<&str> = names.lines().collect();
+    if names.is_empty() || names.len() != kinds.len() {
+        bail!("The ZIP has ambiguous or unsupported entry names.");
+    }
+
+    let mut entries = Vec::with_capacity(names.len());
+    let mut seen = std::collections::HashSet::new();
     let mut has_data = false;
-    for name in list.lines() {
-        let snapshot_meta = name == snapshot::MANIFEST || name == "SNAPSHOT.txt";
-        if name.contains("..") || name.starts_with('/') || !(snapshot_meta || name.starts_with("data/") || name.starts_with("conf/")) {
+    let mut has_conf = false;
+    for (name, kind) in names.into_iter().zip(kinds) {
+        let is_dir = name.ends_with('/');
+        if (is_dir && kind != b'd') || (!is_dir && kind != b'-') {
+            bail!("The ZIP contains a symbolic link or a non-regular file: {name}");
+        }
+        if name.contains('\\') || name.chars().any(|c| matches!(c, '*' | '?' | '[' | ']')) {
+            bail!("The ZIP contains an unsupported entry name: {name}");
+        }
+        let path = name.strip_suffix('/').unwrap_or(name);
+        let parts: Vec<&str> = path.split('/').collect();
+        if parts.iter().any(|part| part.is_empty() || *part == "." || *part == "..") {
+            bail!("The ZIP contains an unsafe entry path: {name}");
+        }
+        let metadata = path == snapshot::MANIFEST || path == "SNAPSHOT.txt";
+        let archive_root = parts.first().copied().unwrap_or_default();
+        let in_wiki_tree = archive_root == "data" || archive_root == "conf";
+        if !(metadata || in_wiki_tree)
+            || (metadata && (is_dir || parts.len() != 1))
+            || (in_wiki_tree && parts.len() < 2 && !is_dir)
+            || (in_wiki_tree && parts.len() == 1 && !is_dir)
+        {
             bail!("It doesn't look like an ArchiveWiki backup (unexpected entry: {name}).");
         }
-        if name.starts_with("data/") {
-            has_data = true;
+        if !seen.insert(path.to_string()) {
+            bail!("The ZIP contains a duplicate entry: {name}");
         }
+        has_data |= archive_root == "data";
+        has_conf |= archive_root == "conf";
+        entries.push(ArchiveEntry { name: name.to_string(), is_dir });
     }
-    if !has_data {
-        bail!("It doesn't contain any wiki data.");
+    if !has_data || !has_conf {
+        bail!("The ZIP must contain both wiki data and configuration.");
+    }
+    Ok(entries)
+}
+
+fn validate_backup_zip(zip: &Path) -> Result<()> {
+    inspect_archive(zip).map(|_| ())
+}
+
+/// Extract only prevalidated regular files, one at a time, into a new staging folder.
+fn extract_archive(zip: &Path, stage: &Path, entries: &[ArchiveEntry]) -> Result<()> {
+    let _ = fs::remove_dir_all(stage);
+    fs::create_dir_all(stage)?;
+    for entry in entries {
+        let relative = entry.name.strip_suffix('/').unwrap_or(&entry.name);
+        let target = stage.join(relative);
+        if entry.is_dir {
+            fs::create_dir_all(&target)?;
+            continue;
+        }
+        let parent = target.parent().context("archive entry has no parent folder")?;
+        fs::create_dir_all(parent)?;
+        let file = fs::OpenOptions::new().write(true).create_new(true).open(&target)
+            .with_context(|| format!("creating staged file {}", target.display()))?;
+        let status = Command::new("/usr/bin/unzip")
+            .arg("-p").arg(zip).arg(&entry.name)
+            .stdout(Stdio::from(file)).stderr(Stdio::null()).status()?;
+        if !status.success() {
+            bail!("The ZIP entry couldn't be extracted: {}", entry.name);
+        }
     }
     Ok(())
 }
 
-/// Main thread, server stopped. Saves the current wiki first; on failure puts the previous data back.
-fn restore_backup(l: &Layout, zip: &Path) -> Result<()> {
-    let safety = backup(l, "pre-restore").context("could not save your current wiki first")?;
-    let trash = l.support.join("restore-previous");
-    let _ = fs::remove_dir_all(&trash);
-    fs::create_dir_all(&trash)?;
-    let data = l.wiki.join("data");
-    if data.exists() {
-        fs::rename(&data, trash.join("data")).context("could not set aside the current data")?;
+/// Replace data and configuration as one operation; restore both previous folders if a rename fails.
+fn install_staged_restore(wiki: &Path, stage: &Path, previous: &Path) -> Result<()> {
+    let _ = fs::remove_dir_all(previous);
+    fs::create_dir_all(previous)?;
+    let mut saved: Vec<&str> = Vec::new();
+    for top in ["data", "conf"] {
+        let current = wiki.join(top);
+        if fs::symlink_metadata(&current).is_ok() {
+            if let Err(e) = fs::rename(&current, previous.join(top)) {
+                for old in saved.iter().rev() {
+                    let _ = fs::rename(previous.join(*old), wiki.join(*old));
+                }
+                return Err(e).with_context(|| format!("setting aside the current {top} folder"));
+            }
+            saved.push(top);
+        }
     }
-    // (a snapshot also carries MANIFEST.sha256 and SNAPSHOT.txt; those are not part of the wiki)
-    let st = Command::new("/usr/bin/unzip")
-        .arg("-oq")
-        .arg(zip)
-        .arg("-x")
-        .arg(snapshot::MANIFEST)
-        .arg("SNAPSHOT.txt")
-        .arg("-d")
-        .arg(&l.wiki)
-        .status();
-    let ok = matches!(&st, Ok(s) if s.success());
-    if !ok {
-        let _ = fs::remove_dir_all(&data);
-        let _ = fs::rename(trash.join("data"), &data);
-        let _ = Command::new("/usr/bin/unzip").arg("-oq").arg(&safety).arg("-x").arg("data/*").arg("-d").arg(&l.wiki).status();
-        bail!("The backup could not be unpacked. Your previous wiki was kept.");
-    }
-    for d in ["cache", "tmp", "locks", "log", "index", "meta", "attic", "media", "media_attic", "media_meta", "pages"] {
-        let _ = fs::create_dir_all(data.join(d));
+    let install_result = (|| -> Result<()> {
+        for top in ["data", "conf"] {
+            fs::rename(stage.join(top), wiki.join(top))
+                .with_context(|| format!("installing restored {top}"))?;
+        }
+        Ok(())
+    })();
+    if let Err(e) = install_result {
+        for top in ["data", "conf"] {
+            let _ = fs::remove_dir_all(wiki.join(top));
+        }
+        for old in saved.iter().rev() {
+            let _ = fs::rename(previous.join(*old), wiki.join(*old));
+        }
+        return Err(e).context("restore failed; the previous wiki folders were put back");
     }
     Ok(())
+}
+
+/// Main thread, server stopped. Stages and validates the archive before replacing live files.
+fn restore_backup(l: &Layout, zip: &Path) -> Result<()> {
+    let entries = inspect_archive(zip)?;
+    let stage = l.support.join("restore-stage");
+    let result = (|| -> Result<()> {
+        extract_archive(zip, &stage, &entries)?;
+        for top in ["data", "conf"] {
+            if !stage.join(top).is_dir() {
+                bail!("The backup is missing its {top} folder.");
+            }
+        }
+        let _ = fs::remove_file(stage.join(snapshot::MANIFEST));
+        let _ = fs::remove_file(stage.join("SNAPSHOT.txt"));
+        backup(l, "pre-restore").context("could not save your current wiki first")?;
+        install_staged_restore(&l.wiki, &stage, &l.support.join("restore-previous"))?;
+        let data = l.wiki.join("data");
+        for d in ["cache", "tmp", "locks", "log", "index", "meta", "attic", "media", "media_attic", "media_meta", "pages"] {
+            let _ = fs::create_dir_all(data.join(d));
+        }
+        Ok(())
+    })();
+    let _ = fs::remove_dir_all(&stage);
+    result
 }
 
 // ---------------------------------------------------------------- app lock
@@ -4005,6 +4114,7 @@ fn create_snapshot(l: &Layout) -> Result<(PathBuf, usize)> {
 
 /// Returns (everything matched, human-readable report).
 fn verify_snapshot_zip(l: &Layout, zip: &Path) -> Result<(bool, String)> {
+    let entries = inspect_archive(zip)?;
     let mut notes = String::new();
     let side = PathBuf::from(format!("{}.sha256", zip.display()));
     match fs::read_to_string(&side) {
@@ -4022,10 +4132,7 @@ fn verify_snapshot_zip(l: &Layout, zip: &Path) -> Result<(bool, String)> {
     let _ = fs::remove_dir_all(&tmp);
     fs::create_dir_all(&tmp)?;
     let res = (|| -> Result<(bool, String)> {
-        let st = Command::new("/usr/bin/unzip").arg("-q").arg(zip).arg("-d").arg(&tmp).status()?;
-        if !st.success() {
-            bail!("The zip couldn't be unpacked.");
-        }
+        extract_archive(zip, &tmp, &entries).context("The zip couldn't be safely unpacked")?;
         let v = snapshot::verify_tree(&tmp)?;
         let mut t = notes.clone();
         t.push_str(&format!("{} files checked.\n", v.checked));
@@ -4395,9 +4502,27 @@ fn run() -> Result<()> {
             }
             Event::UserEvent(UserEvent::RestoreBackup { zip }) => {
                 server.stop();
-                let res = restore_backup(&layout, &zip);
+                let mut res = restore_backup(&layout, &zip);
                 match start_checked(&layout, port) {
                     Ok(s) => server = s,
+                    Err(start_error) if res.is_ok() => {
+                        let previous = layout.support.join("restore-previous");
+                        let failed = layout.support.join("restore-failed");
+                        if let Err(rollback_error) = install_staged_restore(&layout.wiki, &previous, &failed) {
+                            alert(&format!("The restored wiki would not start ({start_error:#}), and its previous files could not be put back ({rollback_error:#})."));
+                            *control_flow = ControlFlow::Exit;
+                            return;
+                        }
+                        res = Err(anyhow!("The restored wiki did not start ({start_error:#}); the previous pages and settings were restored."));
+                        match start_checked(&layout, port) {
+                            Ok(s) => server = s,
+                            Err(recovery_error) => {
+                                alert(&format!("The previous wiki files were restored, but the server could not restart: {recovery_error:#}"));
+                                *control_flow = ControlFlow::Exit;
+                                return;
+                            }
+                        }
+                    }
                     Err(e) => {
                         alert(&format!("Could not restart the wiki server: {e:#}"));
                         *control_flow = ControlFlow::Exit;
