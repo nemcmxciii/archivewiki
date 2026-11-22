@@ -1,8 +1,29 @@
-====== Genealogy ======
+====== Family archive ======
 
-One page per person, for example ''%%[[genealogy:jane_doe]]%%''. A new page here starts from a template with a small details block (name, dates, places, parents) and a fillable five-generation form for that person's ancestors.
+Keep one page for each person, then connect the people you know. You can start with a name and fill in the rest as you find it.
 
-  * [[genealogy:chart|Five-generation chart]] — pick anyone and fill in or edit their ancestors
-  * [[genealogy:chart_blank|Blank chart]] — print a chart to fill in by hand
+===== Add a person =====
 
-**How it works:** the form lists the person, then their parents, grandparents, great-grandparents and 2nd great-grandparents, one generation after another. Type a name to unlock the next generation, fill in dates and places, tick **Living** where it applies, and press **Save chart**. Saving creates a page for each new person and links them as father or mother. The **Tree** link shows the traditional chart for viewing and printing.
+Enter a name to create a person page. Dates and places are optional; you can add or change them later.
+
+{{newperson>}}
+
+===== Explore your family =====
+
+  * [[genealogy:chart|Build or update a family tree]] — choose a person and add known ancestors one generation at a time.
+  * [[genealogy:chart_blank|Print a blank family chart]] — fill it in by hand.
+
+===== Find a person =====
+
+Search by name, date, or place. Open a person's page to read their details, family links, sources, and research notes.
+
+{{people>}}
+
+===== How it works =====
+
+  * Each person has their own page. Begin with only a name; details can be added whenever you are ready.
+  * The ancestor chart guides you through parents, grandparents, and earlier generations. You can save partial work and return later.
+  * Record sources on each person’s page so you can return to the records behind your family history.
+  * The tree view is useful for seeing or printing a family at a glance. Living people are marked in the chart; the redacted tree view can hide their names.
+
+Your family pages and research stay in this local archive.

@@ -1,0 +1,5 @@
+====== Five-generation chart ======
+
+Choose a person, then fill in their ancestors on the form: type a name to unlock the next generation, add dates and places, and press **Save chart**. Use the **Tree** link for the traditional chart, and print the page (⌘P) for a clean copy.
+
+{{pedigree>}}

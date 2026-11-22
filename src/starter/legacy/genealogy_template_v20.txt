@@ -1,0 +1,25 @@
+====== @!!PAGE@ ======
+
+<person>
+name: @!!PAGE@
+sex: 
+born: 
+birthplace: 
+died: 
+deathplace: 
+father: 
+mother: 
+living: yes
+</person>
+
+===== Summary =====
+
+===== Timeline =====
+
+===== Sources =====
+
+===== Notes =====
+
+===== Five-generation chart =====
+
+{{pedigree>@ID@}}

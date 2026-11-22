@@ -5,6 +5,25 @@
 .awg-person dt { color: __text_neu__; }
 .awg-person dd { margin: 0; }
 
+/* Genealogy start page: quick person creation and local directory. */
+.awg-newperson { max-width: 46em; margin: .8em 0 1.5em; padding: 1em; border: 1px solid __border__; border-left: 4px solid __theme_color__; border-radius: .55em; background: __background_alt__; }
+.awg-newperson-name { display: block; max-width: 34em; margin-bottom: .7em; font-weight: 600; }
+.awg-newperson-name span, .awg-newperson-details label span, .awg-directory-search span { display: block; margin-bottom: .2em; color: __text_neu__; font-size: .88em; }
+.awg-newperson input, .awg-directory-search input { box-sizing: border-box; width: 100%; }
+.awg-newperson-details { margin: .5em 0 .8em; }
+.awg-newperson-details summary { cursor: pointer; color: __link__; }
+.awg-newperson-details .awg-pair { margin-top: .6em; }
+.awg-newperson-result { margin: .4em 0; }
+.awg-newperson-result.awg-bad { color: __missing__; }
+.awg-directory { max-width: 56em; margin: 1em 0 1.5em; }
+.awg-directory-search { display: block; max-width: 34em; }
+.awg-directory-count { margin: .35em 0; color: __text_alt__; font-size: .9em; }
+.awg-people-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(15em, 1fr)); gap: .5em; margin: .6em 0; padding: 0; list-style: none; }
+.awg-person-row { display: flex; flex-direction: column; min-width: 0; padding: .65em .8em; border: 1px solid __border__; border-left: 3px solid __theme_color__; border-radius: .4em; background: __background__; }
+.awg-person-row a { font-weight: 600; overflow-wrap: anywhere; }
+.awg-person-row span, .awg-person-row small { color: __text_alt__; }
+.awg-directory-none, .awg-directory-empty { color: __text_neu__; }
+
 .awg-chart { margin: .8em 0 1.2em; overflow-x: auto; }
 /* pages with a chart may use more of the window than the template's default width */
 #dokuwiki__site:has(.awg-chart) { max-width: 100em; }
@@ -41,6 +60,13 @@ table.awg-pedigree td.awg-gen { padding: 0 .5em 0 0; vertical-align: middle; bor
 /* fillable form view: flows vertically, one generation after another */
 .awg-views { margin: .2em 0 .6em; color: __text_alt__; font-size: .9em; }
 .awg-form { margin: 0 0 1.2em; }
+.awg-step-intro { max-width: 48em; }
+.awg-stepper { display: flex; flex-wrap: wrap; align-items: center; gap: .5em .8em; margin: .8em 0 1em; padding: .65em .8em; border: 1px solid __border__; border-radius: .5em; background: __background_alt__; }
+.awg-step-label { flex: 1 1 14em; }
+.awg-step-choices { display: flex; gap: .25em; }
+.awg-step-choices button { min-width: 2em; padding: .2em .45em; border: 1px solid __border__; border-radius: 50%; background: __background__; color: __text_neu__; cursor: pointer; }
+.awg-step-choices button.awg-current { border-color: __theme_color__; background: __theme_color__; color: __background__; font-weight: bold; }
+.awg-stepper button:disabled { opacity: .5; cursor: default; }
 .awg-gensec { margin: 0 0 1.4em; }
 .awg-gensec h3 { margin: 0 0 .5em; padding-bottom: .15em; border-bottom: 1px solid __border__; font-size: 1.05em; color: __text_neu__; }
 .awg-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(17em, 1fr)); gap: .7em; }
@@ -65,3 +91,10 @@ fieldset.awg-has-error { border-color: __missing__; }
 .awg-msg.awg-good { color: __existing__; font-weight: bold; }
 .awg-actions { position: sticky; bottom: 0; padding: .6em 0; background: __background__; border-top: 1px solid __border__; }
 .awg-dirty { margin-left: .8em; color: __text_alt__; font-size: .9em; }
+
+@media (max-width: 36em) {
+    .awg-newperson { padding: .75em; }
+    .awg-newperson-details .awg-pair { grid-template-columns: 1fr; }
+    .awg-stepper { gap: .45em; }
+    .awg-step-label { flex-basis: 100%; order: 3; }
+}

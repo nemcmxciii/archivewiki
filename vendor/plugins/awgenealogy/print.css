@@ -15,7 +15,8 @@ table.awg-pedigree td.awg-gen { padding: 0 4pt 0 0; vertical-align: middle; bord
 a.awg-name:after { content: none !important; }
 
 /* form view when printed */
-.awg-views, .awg-actions, .awg-msg, .awg-open, .awg-hint { display: none !important; }
+.awg-views, .awg-stepper, .awg-step-intro, .awg-actions, .awg-msg, .awg-open, .awg-hint { display: none !important; }
+.awg-gensec { display: block !important; }
 .awg-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5pt; }
 .awg-gensec { page-break-inside: avoid; margin-bottom: 8pt; }
 .awg-gensec h3 { font-size: 10pt; margin: 0 0 3pt; border-bottom: 0.5pt solid #888; }

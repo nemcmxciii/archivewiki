@@ -2,6 +2,39 @@
 jQuery(function () {
     var $ = jQuery;
 
+    $('.awg-newperson').on('submit', function (e) {
+        e.preventDefault();
+        var $form = $(this), $button = $form.find('button[type=submit]'), $result = $form.find('.awg-newperson-result');
+        $result.removeClass('awg-bad awg-good').text('');
+        if (!$.trim($form.find('[name=name]').val())) {
+            $result.addClass('awg-bad').text('Enter a name to continue.');
+            $form.find('[name=name]').trigger('focus');
+            return;
+        }
+        $button.prop('disabled', true).text('Creating…');
+        $.post(DOKU_BASE + 'lib/exe/ajax.php', $form.serialize(), null, 'json')
+            .done(function (r) {
+                if (r && r.ok && r.url) { window.location.href = r.url; return; }
+                $result.addClass('awg-bad').text((r && r.message) || 'Could not create the person page.');
+                $button.prop('disabled', false).text('Create person page');
+            })
+            .fail(function (xhr) {
+                $result.addClass('awg-bad').text('Could not create the person page (' + xhr.status + ').');
+                $button.prop('disabled', false).text('Create person page');
+            });
+    });
+
+    $('.awg-people-search').on('input', function () {
+        var query = $.trim($(this).val().toLocaleLowerCase()), shown = 0, $list = $(this).closest('.awg-directory');
+        $list.find('.awg-person-row').each(function () {
+            var match = $(this).attr('data-search').toLocaleLowerCase().indexOf(query) !== -1;
+            $(this).toggle(match);
+            if (match) shown++;
+        });
+        $list.find('.awg-directory-count').text(shown + (shown === 1 ? ' person' : ' people'));
+        $list.find('.awg-directory-none').prop('hidden', shown !== 0);
+    });
+
     function field(name, label, value) {
         return $('<input type="text" class="edit"/>').attr({name: name, placeholder: label, title: label}).val(value || '');
     }
@@ -73,6 +106,45 @@ jQuery(function () {
         var $save = $form.find('.awg-save');
         var $msg = $form.find('.awg-msg');
         var $dirty = $form.find('.awg-dirty');
+        var $sections = $form.find('.awg-gensec');
+        var step = 0;
+
+        function showStep(next) {
+            step = Math.max(0, Math.min($sections.length - 1, next));
+            $sections.hide().eq(step).show();
+            $stepLabel.text('Generation ' + (step + 1) + ' of ' + $sections.length + ' · ' +
+                $.trim($sections.eq(step).find('h3').text()).replace(/^Generation \d+ · /, ''));
+            $previous.prop('disabled', step === 0);
+            $next.text(step === $sections.length - 1 ? 'Last generation' : 'Next generation →')
+                .prop('disabled', step === $sections.length - 1);
+            $choices.find('button').removeClass('awg-current').attr('aria-current', null).eq(step)
+                .addClass('awg-current').attr('aria-current', 'step');
+        }
+
+        var $steps = $('<nav class="awg-stepper" aria-label="Ancestor chart generations"/>');
+        var $previous = $('<button type="button" class="button awg-step-prev">← Previous</button>');
+        var $stepLabel = $('<strong class="awg-step-label" aria-live="polite"/>');
+        var $next = $('<button type="button" class="button awg-step-next"/>');
+        var $choices = $('<div class="awg-step-choices"/>');
+        $sections.each(function (i) {
+            var label = $.trim($(this).find('h3').text()).replace(/^Generation \d+ · /, '');
+            var $choice = $('<button type="button"/>').text(i + 1).attr('aria-label', 'Show ' + label);
+            $choice.on('click', function () { showStep(i); });
+            $choices.append($choice);
+        });
+        $steps.append($previous, $choices, $stepLabel, $next);
+        $sections.first().before($steps);
+        $previous.on('click', function () { showStep(step - 1); });
+        $next.on('click', function () { showStep(step + 1); });
+        showStep(0);
+
+        try {
+            var savedMessage = sessionStorage.getItem('awgGenealogySaved');
+            if (savedMessage) {
+                $msg.addClass('awg-good').text(savedMessage);
+                sessionStorage.removeItem('awgGenealogySaved');
+            }
+        } catch (ignore) {}
 
         function card(n) { return $form.find('.awg-card[data-n="' + n + '"]'); }
         function nameOf($c) { return $.trim($c.find('input[name$="[name]"]').val() || ''); }
@@ -115,7 +187,11 @@ jQuery(function () {
             $.post(DOKU_BASE + 'lib/exe/ajax.php', data, null, 'json')
                 .done(function (r) {
                     if (r && r.ok) {
-                        $msg.addClass('awg-good').text(r.message);
+                        var saved = r.message || 'Changes saved.';
+                        if (r.created || r.updated) saved += ' ' +
+                            (r.created ? r.created + (r.created === 1 ? ' person added. ' : ' people added. ') : '') +
+                            (r.updated ? r.updated + (r.updated === 1 ? ' person updated.' : ' people updated.') : '');
+                        try { sessionStorage.setItem('awgGenealogySaved', saved); } catch (ignore) {}
                         window.location.reload();
                         return;
                     }

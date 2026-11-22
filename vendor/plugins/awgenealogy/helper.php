@@ -76,8 +76,9 @@ class helper_plugin_awgenealogy extends Plugin
     {
         $fields = array_merge(['name' => $name, 'living' => 'yes'], $fields);
         return "====== $name ======\n\n" . $this->renderBlock($fields) .
-            "\n\n===== Summary =====\n\n===== Timeline =====\n\n===== Sources =====\n\n===== Notes =====\n\n" .
-            "===== Five-generation chart =====\n\n{{pedigree>$id}}\n";
+            "\n\n===== Family and relationships =====\n\nRecord spouses, children, siblings, and other family links here. The ancestor chart below follows parents.\n\n" .
+            "===== Life story =====\n\n===== Timeline =====\n\n===== Sources =====\n\nAdd one source per entry. Include the record or publication, date, archive or URL, and any page or certificate number.\n\n" .
+            "===== Research notes =====\n\n===== Ancestor chart =====\n\n{{pedigree>$id}}\n";
     }
 
     /** single-line, tag-free value that can't break the block */
@@ -319,13 +320,14 @@ class helper_plugin_awgenealogy extends Plugin
         }
         $html = '<div class="awg-formwrap" data-root="' . hsc($rootId) . '" data-gens="' . (int)$gens . '" data-sectok="' . hsc(getSecurityToken()) . '">';
         $html .= $this->viewSwitch($pageId, 'form', $extra);
-        $html .= '<form class="awg-form" action="#" method="post" autocomplete="off"><div class="awg-msg" role="status"></div>';
+        $html .= '<p class="awg-step-intro">Start with the selected person. Add the relatives you know, one generation at a time. You can save now and return later.</p>';
+        $html .= '<form class="awg-form" action="#" method="post" autocomplete="off"><div class="awg-msg" role="status" aria-live="polite"></div>';
         for ($g = 1; $g <= $gens; $g++) {
             $html .= '<section class="awg-gensec"><h3>Generation ' . $g . ' · ' . hsc($this->genTitle($g)) . '</h3><div class="awg-cards">';
             for ($n = 1 << ($g - 1); $n < (1 << $g); $n++) $html .= $this->card($n, $map[$n] ?? null, $map);
             $html .= '</div></section>';
         }
-        $html .= '<div class="awg-actions"><button type="submit" class="button awg-save" disabled="disabled">Save chart</button> ' .
+        $html .= '<div class="awg-actions"><button type="submit" class="button awg-save" disabled="disabled">Save changes</button> ' .
             '<span class="awg-dirty"></span></div></form></div>';
         return $html;
     }

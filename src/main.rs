@@ -85,7 +85,7 @@ const BROKEN_JOURNAL_BUTTON_CARDS_CSS: &str = r#"
 "#;
 
 // Starter structure, installed once into the wiki; only files that don't exist yet are written.
-const STARTER_VERSION: u32 = 20;
+const STARTER_VERSION: u32 = 21;
 const STARTER: &[(&str, &str)] = &[
     ("data/pages/start.txt", include_str!("starter/start.txt")),
     ("data/pages/sidebar.txt", include_str!("starter/sidebar.txt")),
@@ -2929,6 +2929,21 @@ fn install_starter(wiki: &Path) {
                 include_str!("starter/bible/start.txt"),
             ),
             (
+                "data/pages/genealogy/start.txt",
+                include_str!("starter/legacy/genealogy_start_v20.txt"),
+                include_str!("starter/genealogy_start.txt"),
+            ),
+            (
+                "data/pages/genealogy/_template.txt",
+                include_str!("starter/legacy/genealogy_template_v20.txt"),
+                include_str!("starter/genealogy_template.txt"),
+            ),
+            (
+                "data/pages/genealogy/chart.txt",
+                include_str!("starter/legacy/genealogy_chart_v20.txt"),
+                include_str!("starter/genealogy_chart.txt"),
+            ),
+            (
                 "data/pages/bible/notes/start.txt",
                 include_str!("starter/legacy/bible_notes_start_v18.txt"),
                 include_str!("starter/bible/notes/start.txt"),
@@ -3031,9 +3046,69 @@ fn install_starter(wiki: &Path) {
     let _ = fs::write(&marker, STARTER_VERSION.to_string());
 }
 
-/// Curated plugins shipped with the app (struct, sqlite, bureaucracy, move, tag, pagelist, include, wrap, gallery).
-/// Each is copied into lib/plugins once, and only if you don't already have it. A plugin you remove later is not
-/// re-added, and one you installed or updated yourself is never touched.
+/// Curated plugins shipped with the app. Existing plugins are not overwritten, except the prior ArchiveWiki
+/// Genealogy build, which is upgraded only after an exact match against its shipped files.
+const AWGENEALOGY_V1_FILES: &[(&str, &str)] = &[
+    ("action.php", include_str!("starter/legacy/awgenealogy_v1/action.php")),
+    ("helper.php", include_str!("starter/legacy/awgenealogy_v1/helper.php")),
+    ("plugin.info.txt", include_str!("starter/legacy/awgenealogy_v1/plugin.info.txt")),
+    ("print.css", include_str!("starter/legacy/awgenealogy_v1/print.css")),
+    ("script.js", include_str!("starter/legacy/awgenealogy_v1/script.js")),
+    ("style.css", include_str!("starter/legacy/awgenealogy_v1/style.css")),
+    ("syntax/pedigree.php", include_str!("starter/legacy/awgenealogy_v1/syntax/pedigree.php")),
+    ("syntax/person.php", include_str!("starter/legacy/awgenealogy_v1/syntax/person.php")),
+];
+
+fn collect_plugin_files(root: &Path, dir: &Path, files: &mut Vec<PathBuf>) -> bool {
+    let Ok(entries) = fs::read_dir(dir) else { return false };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let Ok(kind) = entry.file_type() else { return false };
+        if kind.is_dir() {
+            if !collect_plugin_files(root, &path, files) { return false; }
+        } else if kind.is_file() {
+            let Ok(rel) = path.strip_prefix(root) else { return false };
+            files.push(rel.to_path_buf());
+        } else {
+            return false;
+        }
+    }
+    true
+}
+
+/// Upgrade only the untouched first bundled version of ArchiveWiki's genealogy plugin.
+/// A plugin the user edited or installed separately is left intact.
+fn upgrade_unmodified_awgenealogy(src: &Path, dst: &Path, target_root: &Path) {
+    if !dst.is_dir() { return; }
+    let mut actual = Vec::new();
+    if !collect_plugin_files(dst, dst, &mut actual) { return; }
+    actual.sort();
+    let mut expected: Vec<PathBuf> = AWGENEALOGY_V1_FILES.iter().map(|(p, _)| PathBuf::from(*p)).collect();
+    expected.sort();
+    if actual != expected { return; }
+    for (rel, shipped) in AWGENEALOGY_V1_FILES {
+        if fs::read_to_string(dst.join(*rel)).map(|s| s != *shipped).unwrap_or(true) { return; }
+    }
+
+    let stage = target_root.join(format!(".awgenealogy-update-{}", std::process::id()));
+    let backup = target_root.join(format!(".awgenealogy-previous-{}", std::process::id()));
+    if stage.exists() || backup.exists() { return; }
+    if copy_tree(src, &stage, Path::new(""), &[]).is_err() {
+        let _ = fs::remove_dir_all(&stage);
+        return;
+    }
+    if fs::rename(dst, &backup).is_err() {
+        let _ = fs::remove_dir_all(&stage);
+        return;
+    }
+    if fs::rename(&stage, dst).is_err() {
+        let _ = fs::rename(&backup, dst);
+        let _ = fs::remove_dir_all(&stage);
+        return;
+    }
+    let _ = fs::remove_dir_all(backup);
+}
+
 fn install_plugins(l: &Layout) {
     let Ok(rd) = fs::read_dir(&l.bundle_plugins) else { return };
     let offered_file = l.wiki.join(".archivewiki-plugins");
@@ -3051,12 +3126,18 @@ fn install_plugins(l: &Layout) {
         }
         let name = e.file_name().to_string_lossy().into_owned();
         if offered.contains(&name) {
+            if name == "awgenealogy" {
+                upgrade_unmodified_awgenealogy(&e.path(), &target_root.join(&name), &target_root);
+            }
             continue;
         }
         let dst = target_root.join(&name);
         if !dst.exists() && copy_tree(&e.path(), &dst, Path::new(""), &[]).is_err() {
             let _ = fs::remove_dir_all(&dst);
             continue;
+        }
+        if name == "awgenealogy" {
+            upgrade_unmodified_awgenealogy(&e.path(), &dst, &target_root);
         }
         offered.push(name);
         changed = true;

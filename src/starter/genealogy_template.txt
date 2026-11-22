@@ -12,14 +12,20 @@ mother:
 living: yes
 </person>
 
-===== Summary =====
+===== Family and relationships =====
+
+Record spouses, children, siblings, and other family links here. The ancestor chart below follows parents.
+
+===== Life story =====
 
 ===== Timeline =====
 
 ===== Sources =====
 
-===== Notes =====
+Add one source per entry. Include the record or publication, date, archive or URL, and any page or certificate number.
 
-===== Five-generation chart =====
+===== Research notes =====
+
+===== Ancestor chart =====
 
 {{pedigree>@ID@}}

@@ -5,7 +5,7 @@ use dokuwiki\Extension\EventHandler;
 use dokuwiki\Extension\Event;
 
 /**
- * AJAX endpoint for the pedigree chart: add a missing parent, or edit a person's details.
+ * AJAX endpoint for creating person pages and adding or editing family details.
  * @license GPL 2 (http://www.gnu.org/licenses/gpl.html)
  */
 class action_plugin_awgenealogy extends ActionPlugin
@@ -35,6 +35,10 @@ class action_plugin_awgenealogy extends ActionPlugin
 
         $mode = $INPUT->post->str('mode');
         $id = cleanID($INPUT->post->str('id'));
+        if ($mode === 'newperson') {
+            if ($id !== 'genealogy:start' || !page_exists($id)) return $this->reply(false, 'The Genealogy page is unavailable.');
+            return $this->createPerson($h);
+        }
         if ($id === '' || !page_exists($id)) return $this->reply(false, 'That person page no longer exists.');
         if (auth_quickaclcheck($id) < AUTH_EDIT) return $this->reply(false, 'You don\'t have permission to edit this page.');
         if (checklock($id) !== false) return $this->reply(false, 'The page is being edited by someone else.');
@@ -79,6 +83,29 @@ class action_plugin_awgenealogy extends ActionPlugin
         }
 
         return $this->reply(false, 'Unknown action.');
+    }
+
+    /** Create a person's page from the short Genealogy landing-page form. */
+    private function createPerson($h)
+    {
+        global $INPUT;
+        $name = $h->cleanValue($INPUT->post->str('name'), 120);
+        if ($name === '') return $this->reply(false, 'Enter a name to create the person page.');
+
+        $values = [];
+        foreach (['born', 'birthplace', 'died', 'deathplace'] as $key) {
+            $values[$key] = $h->cleanValue($INPUT->post->str($key));
+        }
+        $baseName = str_replace(':', ' ', $name);
+        $base = cleanID('genealogy:' . $baseName);
+        $new = $base;
+        for ($i = 2; page_exists($new); $i++) $new = $base . '_' . $i;
+        if (auth_quickaclcheck($new) < AUTH_CREATE) return $this->reply(false, 'You don\'t have permission to create a person page here.');
+
+        $values['living'] = $values['died'] === '' ? 'yes' : 'no';
+        $text = $h->newPersonText($new, $name, $values);
+        saveWikiText($new, $text, 'Created a person page');
+        return $this->reply(true, 'Person page created.', ['url' => wl($new, '', false, '&')]);
     }
 
     private function livingFor(array $vals, array $in)
