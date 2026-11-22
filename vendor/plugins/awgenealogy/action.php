@@ -39,6 +39,17 @@ class action_plugin_awgenealogy extends ActionPlugin
             if ($id !== 'genealogy:start' || !page_exists($id)) return $this->reply(false, 'The Genealogy page is unavailable.');
             return $this->createPerson($h);
         }
+        if ($mode === 'newfamily') {
+            if ($id !== 'genealogy:families:start' || !page_exists($id)) return $this->reply(false, 'The Family Groups page is unavailable.');
+            return $this->saveFamily($h, '', true);
+        }
+        if ($mode === 'savefamily') {
+            if (strpos($id, 'genealogy:families:') !== 0 || noNS($id) === 'start') return $this->reply(false, 'That family group page is invalid.');
+            if (!page_exists($id)) return $this->reply(false, 'That family group no longer exists.');
+            if (auth_quickaclcheck($id) < AUTH_EDIT) return $this->reply(false, 'You don\'t have permission to edit this family group.');
+            if (checklock($id) !== false) return $this->reply(false, 'The family group is being edited by someone else.');
+            return $this->saveFamily($h, $id, false);
+        }
         if ($id === '' || !page_exists($id)) return $this->reply(false, 'That person page no longer exists.');
         if (auth_quickaclcheck($id) < AUTH_EDIT) return $this->reply(false, 'You don\'t have permission to edit this page.');
         if (checklock($id) !== false) return $this->reply(false, 'The page is being edited by someone else.');
@@ -106,6 +117,138 @@ class action_plugin_awgenealogy extends ActionPlugin
         $text = $h->newPersonText($new, $name, $values);
         saveWikiText($new, $text, 'Created a person page');
         return $this->reply(true, 'Person page created.', ['url' => wl($new, '', false, '&')]);
+    }
+
+    private function familyMember($h, array $input, $role, array &$reserved)
+    {
+        $name = $h->cleanValue($input['name'] ?? '', 120);
+        $explicitId = cleanID($input['id'] ?? '');
+        if ($name === '' && $explicitId === '') {
+            foreach (['born', 'birthplace', 'died', 'deathplace', 'sex'] as $key) {
+                if ($h->cleanValue($input[$key] ?? '') !== '') return ['error' => 'Enter a name for the person or clear the other fields.'];
+            }
+            return null;
+        }
+        if ($name === '') return ['error' => 'Enter a name for each linked person.'];
+
+        $fields = [
+            'name' => $name,
+            'born' => $h->cleanValue($input['born'] ?? ''),
+            'birthplace' => $h->cleanValue($input['birthplace'] ?? ''),
+            'died' => $h->cleanValue($input['died'] ?? ''),
+            'deathplace' => $h->cleanValue($input['deathplace'] ?? ''),
+        ];
+        if ($role === 'child') $fields['sex'] = $h->cleanValue($input['sex'] ?? '', 20);
+        $id = $explicitId;
+        $existing = false;
+        if ($id !== '') {
+            if (strpos($id, 'genealogy:') !== 0 || !page_exists($id) || !$h->findBlock(rawWiki($id))) {
+                return ['error' => 'A linked person page could not be found.'];
+            }
+            if (auth_quickaclcheck($id) < AUTH_EDIT || checklock($id) !== false) {
+                return ['error' => 'A linked person page cannot be edited right now.'];
+            }
+            $existing = true;
+        } else {
+            $base = cleanID('genealogy:' . str_replace(':', ' ', $name));
+            $id = $base;
+            if (page_exists($id) && $h->findBlock(rawWiki($id))) {
+                $existing = true;
+                if (auth_quickaclcheck($id) < AUTH_EDIT || checklock($id) !== false) {
+                    return ['error' => 'A matching person page cannot be edited right now.'];
+                }
+            } else {
+                for ($i = 2; page_exists($id) || isset($reserved[$id]); $i++) $id = $base . '_' . $i;
+                if (auth_quickaclcheck($id) < AUTH_CREATE) return ['error' => 'You don\'t have permission to create a person page here.'];
+            }
+        }
+        if (isset($reserved[$id])) return ['error' => 'The same person was entered more than once in this family group.'];
+        $reserved[$id] = true;
+        return ['id' => $id, 'name' => $name, 'fields' => $fields, 'existing' => $existing, 'explicit' => $explicitId !== ''];
+    }
+
+    private function saveFamily($h, $familyId, $isNew)
+    {
+        global $INPUT;
+        $title = $h->cleanValue($INPUT->post->str('title'), 120);
+        if ($title === '') return $this->reply(false, 'Enter a name for this family group.');
+
+        if ($isNew) {
+            $base = cleanID('genealogy:families:' . str_replace(':', ' ', $title));
+            $familyId = $base;
+            for ($i = 2; page_exists($familyId); $i++) $familyId = $base . '_' . $i;
+            if (auth_quickaclcheck($familyId) < AUTH_CREATE) return $this->reply(false, 'You don\'t have permission to create a family group here.');
+        }
+
+        $reserved = [];
+        $members = [];
+        foreach (['father', 'mother'] as $role) {
+            $input = $INPUT->post->arr($role);
+            $member = $this->familyMember($h, is_array($input) ? $input : [], $role, $reserved);
+            if (isset($member['error'])) return $this->reply(false, $member['error']);
+            if ($member) $members[$role] = $member;
+        }
+        $children = [];
+        $childrenIn = $INPUT->post->arr('children');
+        if (is_array($childrenIn)) {
+            if (count($childrenIn) > 20) return $this->reply(false, 'A family group can include up to 20 children.');
+            foreach ($childrenIn as $input) {
+                if (!is_array($input)) continue;
+                $child = $this->familyMember($h, $input, 'child', $reserved);
+                if (isset($child['error'])) return $this->reply(false, $child['error']);
+                if ($child) $children[] = $child;
+            }
+        }
+        $familyFields = [
+            'title' => $title,
+            'father' => $members['father']['id'] ?? '',
+            'mother' => $members['mother']['id'] ?? '',
+            'marriage_date' => $h->cleanValue($INPUT->post->str('marriage_date')),
+            'marriage_place' => $h->cleanValue($INPUT->post->str('marriage_place')),
+            'sources' => $this->cleanFamilyText($h, $INPUT->post->str('sources')),
+            'notes' => $this->cleanFamilyText($h, $INPUT->post->str('notes')),
+        ];
+        foreach ($children as $i => $child) $familyFields['child_' . ($i + 1)] = $child['id'];
+
+        foreach (array_merge(array_values($members), $children) as $person) {
+            if ($person['existing']) {
+                $changes = ['name' => $person['name']];
+                foreach (['born', 'birthplace', 'died', 'deathplace', 'sex'] as $key) {
+                    if (isset($person['fields'][$key]) && ($person['explicit'] || $person['fields'][$key] !== '')) {
+                        $changes[$key] = $person['fields'][$key];
+                    }
+                }
+                if (($changes['died'] ?? '') !== '') $changes['living'] = 'no';
+                saveWikiText($person['id'], $h->setFields(rawWiki($person['id']), $changes), 'Updated from a family group');
+            } else {
+                $fields = $person['fields'];
+                if ($fields['sex'] === '') unset($fields['sex']);
+                $fields['living'] = $fields['died'] === '' ? 'yes' : 'no';
+                saveWikiText($person['id'], $h->newPersonText($person['id'], $person['name'], $fields), 'Added from a family group');
+            }
+        }
+
+        foreach ($children as $child) {
+            $links = [];
+            foreach (['father', 'mother'] as $role) {
+                if (!isset($members[$role])) continue;
+                $parentId = $members[$role]['id'];
+                $links[$role] = getNS($parentId) === getNS($child['id']) ? noNS($parentId) : $parentId;
+            }
+            if ($links) saveWikiText($child['id'], $h->setFields(rawWiki($child['id']), $links), 'Linked from a family group');
+        }
+
+        if ($isNew) saveWikiText($familyId, $h->newFamilyText($familyFields), 'Created a family group');
+        else saveWikiText($familyId, $h->setFamilyFields(rawWiki($familyId), $familyFields), 'Updated a family group');
+        return $this->reply(true, $isNew ? 'Family group created.' : 'Family group saved.', ['url' => wl($familyId, '', false, '&')]);
+    }
+
+    private function cleanFamilyText($h, $value)
+    {
+        $lines = preg_split('/\r\n|\r|\n/', (string)$value);
+        $lines = array_map(function ($line) use ($h) { return $h->cleanValue($line, 500); }, $lines);
+        $clean = implode('\n', $lines);
+        return function_exists('mb_substr') ? mb_substr($clean, 0, 2000) : substr($clean, 0, 2000);
     }
 
     private function livingFor(array $vals, array $in)

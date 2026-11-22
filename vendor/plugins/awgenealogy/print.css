@@ -17,6 +17,16 @@ a.awg-name:after { content: none !important; }
 /* form view when printed */
 .awg-views, .awg-stepper, .awg-step-intro, .awg-actions, .awg-msg, .awg-open, .awg-hint { display: none !important; }
 .awg-gensec { display: block !important; }
+.awg-family-intro, .awg-add-child, .awg-remove-child, .awg-family-actions, .awg-family-result,
+.awg-family-directory > label, .awg-family-count, .awg-family-none { display: none !important; }
+.awg-family-parents { display: grid; grid-template-columns: 1fr 1fr; gap: 5pt; }
+.awg-family-member, .awg-family-marriage, .awg-family-children, .awg-family-sources, .awg-child-row {
+    margin: 3pt 0; padding: 4pt; border: 0.75pt solid #888; page-break-inside: avoid;
+}
+.awg-family-field input, .awg-family-field textarea {
+    width: 100%; border: 0; border-bottom: 0.5pt solid #777; border-radius: 0; background: none; box-shadow: none;
+}
+.awg-family-directory ul { list-style: none; }
 .awg-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5pt; }
 .awg-gensec { page-break-inside: avoid; margin-bottom: 8pt; }
 .awg-gensec h3 { font-size: 10pt; margin: 0 0 3pt; border-bottom: 0.5pt solid #888; }

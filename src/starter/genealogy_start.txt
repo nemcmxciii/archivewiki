@@ -8,10 +8,11 @@ Enter a name to create a person page. Dates and places are optional; you can add
 
 {{newperson>}}
 
-===== Explore your family =====
+===== Family Groups and Pedigree Trees =====
 
-  * [[genealogy:chart|Build or update a family tree]] — choose a person and add known ancestors one generation at a time.
-  * [[genealogy:chart_blank|Print a blank family chart]] — fill it in by hand.
+  * [[genealogy:families:start|Family Groups]] — fill out a family sheet with parents, marriage details, children, and sources.
+  * [[genealogy:chart|Pedigree Trees]] — trace a person’s parents and earlier ancestors one generation at a time.
+  * [[genealogy:chart_blank|Print a blank pedigree tree]] — fill it in by hand.
 
 ===== Find a person =====
 

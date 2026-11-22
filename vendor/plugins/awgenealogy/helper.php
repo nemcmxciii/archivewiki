@@ -44,6 +44,47 @@ class helper_plugin_awgenealogy extends Plugin
         return ['fields' => $fields, 'start' => $m[0][1], 'length' => strlen($m[0][0])];
     }
 
+    public function findFamilyBlock($text)
+    {
+        if (!preg_match('/<family>(.*?)<\/family>/s', $text, $m, PREG_OFFSET_CAPTURE)) return null;
+        $fields = [];
+        foreach (preg_split('/\r?\n/', $m[1][0]) as $line) {
+            if (preg_match('/^\s*([A-Za-z_0-9]+)\s*:\s*(.*?)\s*$/', $line, $mm)) {
+                $fields[strtolower($mm[1])] = $mm[2];
+            }
+        }
+        return ['fields' => $fields, 'start' => $m[0][1], 'length' => strlen($m[0][0])];
+    }
+
+    public function renderFamilyBlock(array $fields)
+    {
+        $lines = ['<family>'];
+        foreach ($fields as $key => $value) $lines[] = $key . ': ' . $value;
+        $lines[] = '</family>';
+        return implode("\n", $lines);
+    }
+
+    public function setFamilyFields($text, array $fields)
+    {
+        $block = $this->findFamilyBlock($text);
+        $saved = $this->renderFamilyBlock($fields);
+        if ($block) {
+            $text = substr_replace($text, $saved, $block['start'], $block['length']);
+            if (isset($fields['title'])) {
+                $title = $fields['title'];
+                $text = preg_replace_callback('/^======.*?======[ \t]*$/m', function () use ($title) {
+                    return '====== ' . $title . ' ======';
+                }, $text, 1);
+            }
+            return $text;
+        }
+        if (preg_match('/^={2,6}.*={2,6}[ \t]*\r?\n/m', $text, $m, PREG_OFFSET_CAPTURE)) {
+            $pos = $m[0][1] + strlen($m[0][0]);
+            return substr($text, 0, $pos) . "\n" . $saved . "\n" . substr($text, $pos);
+        }
+        return $saved . "\n\n" . $text;
+    }
+
     public function renderBlock(array $fields)
     {
         $lines = ['<person>'];
@@ -79,6 +120,14 @@ class helper_plugin_awgenealogy extends Plugin
             "\n\n===== Family and relationships =====\n\nRecord spouses, children, siblings, and other family links here. The ancestor chart below follows parents.\n\n" .
             "===== Life story =====\n\n===== Timeline =====\n\n===== Sources =====\n\nAdd one source per entry. Include the record or publication, date, archive or URL, and any page or certificate number.\n\n" .
             "===== Research notes =====\n\n===== Ancestor chart =====\n\n{{pedigree>$id}}\n";
+    }
+
+    public function newFamilyText(array $fields)
+    {
+        $title = $fields['title'] ?? 'Family group';
+        return "====== $title ======\n\n" .
+            "Record one family unit here. The linked names open each person’s page; the pedigree tree uses the parent links.\n\n" .
+            $this->renderFamilyBlock($fields) . "\n\n{{familygroup>}}\n";
     }
 
     /** single-line, tag-free value that can't break the block */
@@ -158,6 +207,108 @@ class helper_plugin_awgenealogy extends Plugin
         }
         asort($people, SORT_NATURAL | SORT_FLAG_CASE);
         return $people;
+    }
+
+    public function allFamilies()
+    {
+        global $conf;
+        $data = [];
+        search($data, $conf['datadir'], 'search_allpages', ['depth' => 0, 'skipacl' => false], 'genealogy/families');
+        $families = [];
+        foreach ($data as $item) {
+            $id = $item['id'];
+            if (noNS($id) === 'start' || auth_quickaclcheck($id) < AUTH_READ) continue;
+            $block = $this->findFamilyBlock(rawWiki($id));
+            if (!$block) continue;
+            $families[$id] = $block['fields']['title'] ?? $this->titleFromId($id);
+        }
+        asort($families, SORT_NATURAL | SORT_FLAG_CASE);
+        return $families;
+    }
+
+    private function familyInput($name, $label, $value = '', $placeholder = '')
+    {
+        return '<label class="awg-family-field"><span>' . hsc($label) . '</span><input type="text" name="' .
+            hsc($name) . '" value="' . hsc($value) . '" placeholder="' . hsc($placeholder) . '" /></label>';
+    }
+
+    private function familyTextarea($name, $label, $value = '', $placeholder = '')
+    {
+        $value = str_replace('\n', "\n", $value);
+        return '<label class="awg-family-field"><span>' . hsc($label) . '</span><textarea name="' .
+            hsc($name) . '" rows="4" placeholder="' . hsc($placeholder) . '">' . hsc($value) . '</textarea></label>';
+    }
+
+    private function familyMemberInput($role, $label, $ref, $fromId)
+    {
+        $id = $this->resolveRef($ref, $fromId);
+        $person = $id !== '' ? $this->getPerson($id) : null;
+        $f = $person['fields'] ?? [];
+        $html = '<fieldset class="awg-family-member"><legend>' . hsc($label) . '</legend>' .
+            '<input type="hidden" name="' . $role . '[id]" value="' . hsc($id) . '" />' .
+            $this->familyInput($role . '[name]', 'Full name', $f['name'] ?? '', 'Name') .
+            '<div class="awg-pair">' .
+            $this->familyInput($role . '[born]', 'Born', $f['born'] ?? '', 'Year or date') .
+            $this->familyInput($role . '[birthplace]', 'Birthplace', $f['birthplace'] ?? '') . '</div>' .
+            '<div class="awg-pair">' .
+            $this->familyInput($role . '[died]', 'Died', $f['died'] ?? '', 'Year or date') .
+            $this->familyInput($role . '[deathplace]', 'Place of death', $f['deathplace'] ?? '') . '</div></fieldset>';
+        return $html;
+    }
+
+    private function familyChildInput($index, $ref, $fromId)
+    {
+        $id = $this->resolveRef($ref, $fromId);
+        $person = $id !== '' ? $this->getPerson($id) : null;
+        $f = $person['fields'] ?? [];
+        $html = '<div class="awg-child-row"><input type="hidden" name="children[' . $index . '][id]" value="' . hsc($id) . '" />' .
+            '<div class="awg-pair">' .
+            $this->familyInput('children[' . $index . '][name]', 'Child’s full name', $f['name'] ?? '', 'Name') .
+            $this->familyInput('children[' . $index . '][sex]', 'Sex (optional)', $f['sex'] ?? '', 'For example, F or M') . '</div>' .
+            '<div class="awg-pair">' .
+            $this->familyInput('children[' . $index . '][born]', 'Born', $f['born'] ?? '', 'Year or date') .
+            $this->familyInput('children[' . $index . '][birthplace]', 'Birthplace', $f['birthplace'] ?? '') . '</div>' .
+            '<div class="awg-pair">' .
+            $this->familyInput('children[' . $index . '][died]', 'Died', $f['died'] ?? '', 'Year or date') .
+            $this->familyInput('children[' . $index . '][deathplace]', 'Place of death', $f['deathplace'] ?? '') . '</div>' .
+            '<button type="button" class="button awg-remove-child">Remove child</button></div>';
+        return $html;
+    }
+
+    public function familyFormHtml($pageId, $isNew = false)
+    {
+        $block = $isNew ? null : $this->findFamilyBlock(rawWiki($pageId));
+        $f = $block['fields'] ?? [];
+        $html = '<div class="awg-family-editor"><p class="awg-family-intro">Enter the parents, marriage or partnership, and children for one family. You can save what you know now and return to it later.</p>' .
+            '<form class="awg-family-form" method="post" action="#">' .
+            '<input type="hidden" name="call" value="awgenealogy" />' .
+            '<input type="hidden" name="mode" value="' . ($isNew ? 'newfamily' : 'savefamily') . '" />' .
+            '<input type="hidden" name="id" value="' . hsc($pageId) . '" />' .
+            '<input type="hidden" name="sectok" value="' . hsc(getSecurityToken()) . '" />' .
+            '<div class="awg-family-title">' . $this->familyInput('title', 'Family group name', $f['title'] ?? '', 'For example, Doe family') . '</div>' .
+            '<div class="awg-family-parents">' .
+            $this->familyMemberInput('father', 'Father / parent 1', $f['father'] ?? '', $pageId) .
+            $this->familyMemberInput('mother', 'Mother / parent 2', $f['mother'] ?? '', $pageId) . '</div>' .
+            '<fieldset class="awg-family-marriage"><legend>Marriage or partnership (optional)</legend><div class="awg-pair">' .
+            $this->familyInput('marriage_date', 'Date', $f['marriage_date'] ?? '', 'Year or date') .
+            $this->familyInput('marriage_place', 'Place', $f['marriage_place'] ?? '') . '</div></fieldset>' .
+            '<fieldset class="awg-family-children"><legend>Children</legend><div class="awg-child-rows">';
+        $children = [];
+        foreach ($f as $key => $value) {
+            if (preg_match('/^child_([0-9]+)$/', $key, $m)) $children[(int)$m[1]] = $value;
+        }
+        if (!$children) $children = [1 => ''];
+        ksort($children);
+        $index = 0;
+        foreach ($children as $ref) $html .= $this->familyChildInput($index++, $ref, $pageId);
+        $html .= '</div><button type="button" class="button awg-add-child">+ Add another child (up to 20)</button></fieldset>' .
+            '<fieldset class="awg-family-sources"><legend>Sources and notes</legend>' .
+            $this->familyTextarea('sources', 'Sources', $f['sources'] ?? '', 'Add one source per line: record, date, archive or URL, and page number') .
+            $this->familyTextarea('notes', 'Research notes', $f['notes'] ?? '', 'Uncertainties, clues, or follow-up') . '</fieldset>' .
+            '<div class="awg-family-result" role="status" aria-live="polite"></div>' .
+            '<div class="awg-family-actions"><button type="submit" class="button">' . ($isNew ? 'Create family group' : 'Save family group') . '</button></div>' .
+            '</form></div>';
+        return $html;
     }
 
     // ------------------------------------------------------------ chart HTML

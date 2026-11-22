@@ -35,6 +35,81 @@ jQuery(function () {
         $list.find('.awg-directory-none').prop('hidden', shown !== 0);
     });
 
+    $('.awg-family-search').on('input', function () {
+        var query = $.trim($(this).val().toLocaleLowerCase()), shown = 0, $list = $(this).closest('.awg-family-directory');
+        $list.find('li[data-search]').each(function () {
+            var match = $(this).attr('data-search').toLocaleLowerCase().indexOf(query) !== -1;
+            $(this).toggle(match);
+            if (match) shown++;
+        });
+        $list.find('.awg-family-count').text(shown + (shown === 1 ? ' family group' : ' family groups'));
+        $list.find('.awg-family-none').prop('hidden', shown !== 0);
+    });
+
+    $('.awg-family-editor').on('click', '.awg-add-child', function () {
+        var $rows = $(this).siblings('.awg-child-rows'), $last = $rows.children('.awg-child-row').last();
+        if ($rows.children('.awg-child-row').length >= 20) {
+            $(this).prop('disabled', true);
+            return;
+        }
+        var index = 0;
+        $rows.find('[name^="children["]').each(function () {
+            var match = $(this).attr('name').match(/^children\[(\d+)\]/);
+            if (match) index = Math.max(index, parseInt(match[1], 10) + 1);
+        });
+        var $row = $last.clone();
+        $row.find('[name]').each(function () {
+            var $input = $(this), name = $input.attr('name').replace(/children\[\d+\]/, 'children[' + index + ']');
+            $input.attr('name', name).val('');
+        });
+        $row.find('input[type=hidden]').val('');
+        $rows.append($row);
+        if ($rows.children('.awg-child-row').length >= 20) $(this).prop('disabled', true);
+        $row.find('input[type=text]').first().trigger('focus');
+    });
+
+    $('.awg-family-editor').on('click', '.awg-remove-child', function () {
+        var $group = $(this).closest('.awg-family-children'),
+            $rows = $(this).closest('.awg-child-rows'), $row = $(this).closest('.awg-child-row');
+        if ($rows.children('.awg-child-row').length > 1) $row.remove();
+        else $row.find('input').val('');
+        $group.find('.awg-add-child').prop('disabled', false);
+    });
+
+    $('.awg-family-form').each(function () {
+        try {
+            var message = sessionStorage.getItem('awgFamilySaved');
+            if (message) {
+                $(this).find('.awg-family-result').addClass('awg-good').text(message);
+                sessionStorage.removeItem('awgFamilySaved');
+            }
+        } catch (ignore) {}
+    }).on('submit', function (e) {
+        e.preventDefault();
+        var $form = $(this), $button = $form.find('button[type=submit]'), $result = $form.find('.awg-family-result');
+        $result.removeClass('awg-bad awg-good').text('');
+        if (!$.trim($form.find('[name=title]').val())) {
+            $result.addClass('awg-bad').text('Give this family group a name.');
+            $form.find('[name=title]').trigger('focus');
+            return;
+        }
+        $button.prop('disabled', true).text('Saving…');
+        $.post(DOKU_BASE + 'lib/exe/ajax.php', $form.serialize(), null, 'json')
+            .done(function (r) {
+                if (r && r.ok && r.url) {
+                    try { sessionStorage.setItem('awgFamilySaved', r.message || 'Family group saved.'); } catch (ignore) {}
+                    window.location.href = r.url;
+                    return;
+                }
+                $result.addClass('awg-bad').text((r && r.message) || 'Could not save this family group.');
+                $button.prop('disabled', false).text($form.find('[name=mode]').val() === 'newfamily' ? 'Create family group' : 'Save family group');
+            })
+            .fail(function (xhr) {
+                $result.addClass('awg-bad').text('Could not save this family group (' + xhr.status + ').');
+                $button.prop('disabled', false).text($form.find('[name=mode]').val() === 'newfamily' ? 'Create family group' : 'Save family group');
+            });
+    });
+
     function field(name, label, value) {
         return $('<input type="text" class="edit"/>').attr({name: name, placeholder: label, title: label}).val(value || '');
     }

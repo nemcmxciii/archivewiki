@@ -85,7 +85,7 @@ const BROKEN_JOURNAL_BUTTON_CARDS_CSS: &str = r#"
 "#;
 
 // Starter structure, installed once into the wiki; only files that don't exist yet are written.
-const STARTER_VERSION: u32 = 21;
+const STARTER_VERSION: u32 = 22;
 const STARTER: &[(&str, &str)] = &[
     ("data/pages/start.txt", include_str!("starter/start.txt")),
     ("data/pages/sidebar.txt", include_str!("starter/sidebar.txt")),
@@ -95,6 +95,7 @@ const STARTER: &[(&str, &str)] = &[
     ("data/pages/genealogy/_template.txt", include_str!("starter/genealogy_template.txt")),
     ("data/pages/genealogy/chart.txt", include_str!("starter/genealogy_chart.txt")),
     ("data/pages/genealogy/chart_blank.txt", include_str!("starter/genealogy_chart_blank.txt")),
+    ("data/pages/genealogy/families/start.txt", include_str!("starter/genealogy_families_start.txt")),
     ("data/pages/portfolio/start.txt", include_str!("starter/portfolio_start.txt")),
     ("data/pages/portfolio/residential.txt", include_str!("starter/portfolio_residential.txt")),
     ("data/pages/portfolio/residential/entry_template.txt", include_str!("starter/portfolio_residential_entry_template.txt")),
@@ -2941,6 +2942,21 @@ fn install_starter(wiki: &Path) {
             (
                 "data/pages/genealogy/chart.txt",
                 include_str!("starter/legacy/genealogy_chart_v20.txt"),
+                include_str!("starter/genealogy_chart.txt"),
+            ),
+            (
+                "data/pages/genealogy/start.txt",
+                include_str!("starter/legacy/genealogy_start_v21.txt"),
+                include_str!("starter/genealogy_start.txt"),
+            ),
+            (
+                "data/pages/genealogy/_template.txt",
+                include_str!("starter/legacy/genealogy_template_v21.txt"),
+                include_str!("starter/genealogy_template.txt"),
+            ),
+            (
+                "data/pages/genealogy/chart.txt",
+                include_str!("starter/legacy/genealogy_chart_v21.txt"),
                 include_str!("starter/genealogy_chart.txt"),
             ),
             (

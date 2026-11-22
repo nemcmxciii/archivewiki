@@ -1,0 +1,7 @@
+====== Build a family tree ======
+
+Choose the person whose ancestors you want to record. The form shows one generation at a time. Add the relatives you know, move forward when you are ready, and choose **Save changes** whenever you want to keep your progress. You can leave details blank and return later.
+
+Use **Tree** to view the family at a glance. Print the tree with ⌘P.
+
+{{pedigree>}}

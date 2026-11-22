@@ -1,6 +1,6 @@
 <?php
 
-use dokuwikiExtension\SyntaxPlugin;
+use dokuwiki\Extension\SyntaxPlugin;
 
 /** Small guided form for creating a person's page from the Genealogy start page. */
 class syntax_plugin_awgenealogy_newperson extends SyntaxPlugin
@@ -11,7 +11,7 @@ class syntax_plugin_awgenealogy_newperson extends SyntaxPlugin
 
     public function connectTo($mode)
     {
-        $this->Lexer->addSpecialPattern('{{newperson>}}', $mode, 'plugin_awgenealogy_newperson');
+        $this->Lexer->addSpecialPattern('\{\{newperson>\}\}', $mode, 'plugin_awgenealogy_newperson');
     }
 
     public function handle($match, $state, $pos, $handler)
