@@ -3,6 +3,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 RES=resources; mkdir -p "$RES" build
+. ./dependencies.lock
 
 if [ ! -f "$RES/dokuwiki/doku.php" ]; then
   echo "==> DokuWiki"
@@ -17,8 +18,21 @@ if [ ! -f "$RES/dokuwiki/doku.php" ]; then
       }
     fi
   else
-    echo "    vendor/dokuwiki.tar not found; downloading stable"
-    curl -fL "https://download.dokuwiki.org/src/dokuwiki/dokuwiki-stable.tgz" -o build/dokuwiki.tgz
+    echo "    vendor/dokuwiki.tar not found; fetching pinned release"
+    VERSION="${DOKUWIKI_VERSION:-$LOCKED_DOKUWIKI_VERSION}"
+    EXPECTED="${DOKUWIKI_SHA256:-$LOCKED_DOKUWIKI_SHA256}"
+    [[ "$VERSION" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}[a-z]?$ ]] || {
+      echo "ERROR: could not resolve a valid DokuWiki release version"
+      exit 1
+    }
+    TAG="release-$VERSION"
+    NAME="dokuwiki-$VERSION.tgz"
+    curl -fL "https://github.com/dokuwiki/dokuwiki/releases/download/$TAG/$NAME" -o build/dokuwiki.tgz
+    if command -v sha256sum >/dev/null 2>&1; then
+      echo "$EXPECTED  build/dokuwiki.tgz" | sha256sum -c - >/dev/null
+    else
+      echo "$EXPECTED  build/dokuwiki.tgz" | shasum -a 256 -c - >/dev/null
+    fi
     SRC=build/dokuwiki.tgz
   fi
   rm -rf "$RES/dokuwiki"; mkdir -p "$RES/dokuwiki"
@@ -28,45 +42,39 @@ fi
 
 if [ ! -x "$RES/php" ]; then
   echo "==> static PHP"
-  export PHP_MINOR="${PHP_MINOR:-8.3}"
   DEFAULT_REPO="nemcmxciii/archivewiki"
   REPO="${ARCHIVEWIKI_REPO:-${GITHUB_REPOSITORY:-$DEFAULT_REPO}}"
+  PHP_VERSION="${PHP_VERSION:-$LOCKED_PHP_VERSION}"
   if [ -z "${PHP_URL:-}" ]; then
-    echo "    looking for a PHP build in github.com/$REPO releases (run the 'Build PHP' workflow to create one; the repo must be public)"
-    export REPO
-    PHP_URL=$(curl -fsSL "https://github.com/$REPO/releases.atom" 2>/dev/null | python3 -c '
-import sys,re,os
-minor=re.escape(os.environ["PHP_MINOR"]); repo=os.environ["REPO"]
-txt=sys.stdin.read()
-vs=[tuple(map(int,v.split("."))) for v in re.findall(r"/releases/tag/php-(%s\.\d+)" % minor, txt)]
-if vs:
-    v=".".join(map(str,max(vs)))
-    print("https://github.com/%s/releases/download/php-%s/php-%s-cli-macos-aarch64.tar.gz" % (repo,v,v))
-else:
-    print("")' || true)
-  fi
-  if [ -z "${PHP_URL:-}" ]; then
-    echo "    none found; falling back to static-php.dev 'bulk' (NO pdo_sqlite: the build will stop at the check below)"
-    BASE="https://dl.static-php.dev/static-php-cli/bulk"
-    NAME=$(curl -fsSL "$BASE/?format=json" | python3 -c '
-import json,sys,re,os
-minor=os.environ["PHP_MINOR"]
-pat=re.compile(r"^php-(%s\.\d+)-cli-macos-aarch64\.tar\.gz$" % re.escape(minor))
-c=[]
-for i in json.load(sys.stdin):
-    m=pat.match(i["name"])
-    if m: c.append((tuple(map(int,m.group(1).split("."))), i["name"]))
-print(max(c)[1])')
-    PHP_URL="$BASE/$NAME"
+    PHP_URL="https://github.com/$REPO/releases/download/php-$PHP_VERSION/php-$PHP_VERSION-cli-macos-aarch64.tar.gz"
   fi
   echo "    $PHP_URL"
-  curl -fL "$PHP_URL" -o build/php.tgz
-  if [ -n "${PHP_SHA256:-}" ]; then
-    if command -v sha256sum >/dev/null 2>&1; then
-      echo "$PHP_SHA256  build/php.tgz" | sha256sum -c - >/dev/null
+  export PHP_URL REPO
+  if [ -z "${PHP_SHA256:-}" ]; then
+    if [ "$PHP_URL" = "https://github.com/$DEFAULT_REPO/releases/download/php-$LOCKED_PHP_VERSION/php-$LOCKED_PHP_VERSION-cli-macos-aarch64.tar.gz" ] && [ "$REPO" = "$DEFAULT_REPO" ]; then
+      PHP_SHA256="$LOCKED_PHP_SHA256"
     else
-      echo "$PHP_SHA256  build/php.tgz" | shasum -a 256 -c - >/dev/null
+      PHP_VERSION=$(python3 -c '
+import os,re
+m=re.search(r"/php-(\d+\.\d+\.\d+)/php-\d+\.\d+\.\d+-cli-macos-aarch64\.tar\.gz$", os.environ["PHP_URL"])
+if not m: raise SystemExit("Set PHP_SHA256 when PHP_URL does not identify a project release")
+print(m.group(1))')
+      PHP_SHA256=$(curl -fsSL "https://api.github.com/repos/$REPO/releases/tags/php-$PHP_VERSION" | python3 -c '
+import json,sys
+name="php-%s-cli-macos-aarch64.tar.gz" % sys.argv[1]
+release=json.load(sys.stdin)
+asset=next((a for a in release.get("assets",[]) if a.get("name")==name),None)
+digest=asset.get("digest","") if asset else ""
+if not digest.startswith("sha256:") or len(digest) != 71:
+    raise SystemExit("GitHub release does not provide a valid SHA-256 digest")
+print(digest[7:])' "$PHP_VERSION")
     fi
+  fi
+  curl -fL "$PHP_URL" -o build/php.tgz
+  if command -v sha256sum >/dev/null 2>&1; then
+    echo "$PHP_SHA256  build/php.tgz" | sha256sum -c - >/dev/null
+  else
+    echo "$PHP_SHA256  build/php.tgz" | shasum -a 256 -c - >/dev/null
   fi
   tar -xzf build/php.tgz -C build php
   mv build/php "$RES/php"; chmod +x "$RES/php"

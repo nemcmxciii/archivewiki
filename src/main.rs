@@ -4,8 +4,10 @@ compile_error!("ArchiveWiki targets macOS only.");
 mod snapshot;
 mod starter;
 mod deuterocanon;
+mod archive;
 
 use anyhow::{anyhow, bail, Context, Result};
+use archive::{extract_archive, inspect_archive, install_staged_restore, validate_backup_zip};
 use muda::{
     accelerator::{Accelerator, Code, Modifiers},
     CheckMenuItem, Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu,
@@ -2652,7 +2654,6 @@ const AUTO_BACKUP_KEEP: usize = 10;
 
 // Update source. VERSION on the stable branch is tiny and reliable; the tarball is the official release build.
 const VERSION_URL: &str = "https://raw.githubusercontent.com/dokuwiki/dokuwiki/stable/VERSION";
-const DOWNLOAD_URL: &str = "https://download.dokuwiki.org/src/dokuwiki/dokuwiki-stable.tgz";
 const CHECK_INTERVAL_SECS: u64 = 24 * 60 * 60;
 // PHP builds come from this project's own GitHub Releases (made by the "Build PHP" workflow, which includes
 // pdo_sqlite). Updates stay within the installed minor line (8.3.x). The repository must be public.
@@ -2664,6 +2665,32 @@ fn php_list_url() -> String {
 
 fn php_download_url(ver: &str) -> String {
     format!("https://github.com/{PHP_REPO}/releases/download/php-{ver}/php-{ver}-cli-macos-aarch64.tar.gz")
+}
+
+fn release_asset_sha256(repository: &str, tag: &str, asset_name: &str) -> Result<String> {
+    let url = format!("https://api.github.com/repos/{repository}/releases/tags/{tag}");
+    let body = curl_text(&url).context("could not retrieve the release's integrity metadata")?;
+    release_asset_sha256_from_json(&body, asset_name)
+}
+
+fn release_asset_sha256_from_json(body: &str, asset_name: &str) -> Result<String> {
+    let release: serde_json::Value = serde_json::from_str(body)
+        .context("GitHub returned invalid release metadata")?;
+    let assets = release["assets"]
+        .as_array()
+        .context("GitHub release metadata has no asset list")?;
+    let asset = assets
+        .iter()
+        .find(|asset| asset["name"].as_str() == Some(asset_name))
+        .with_context(|| format!("GitHub release is missing {asset_name}"))?;
+    let digest = asset["digest"]
+        .as_str()
+        .and_then(|d| d.strip_prefix("sha256:"))
+        .with_context(|| format!("GitHub has no SHA-256 digest for {asset_name}"))?;
+    if digest.len() != 64 || !digest.bytes().all(|b| b.is_ascii_hexdigit()) {
+        bail!("GitHub returned an invalid SHA-256 digest for {asset_name}");
+    }
+    Ok(digest.to_ascii_lowercase())
 }
 
 #[derive(Debug)]
@@ -3477,7 +3504,15 @@ fn prepare_php_update(l: &Layout, new_ver: &str) -> Result<PathBuf> {
     fs::create_dir_all(&l.updates)?;
     let tgz = l.updates.join("php.tgz");
     curl_file(&php_download_url(new_ver), &tgz)?;
-    snapshot::verify_optional_sha256(&tgz, "ARCHIVEWIKI_PHP_SHA256")
+    let digest = match std::env::var("ARCHIVEWIKI_PHP_SHA256") {
+        Ok(expected) => expected,
+        Err(_) => release_asset_sha256(
+            PHP_REPO,
+            &format!("php-{new_ver}"),
+            &format!("php-{new_ver}-cli-macos-aarch64.tar.gz"),
+        )?,
+    };
+    snapshot::verify_sha256(&tgz, &digest)
         .context("the downloaded PHP package failed integrity verification")?;
     let stage = l.updates.join("php-stage");
     fs::create_dir_all(&stage)?;
@@ -3552,8 +3587,20 @@ fn prepare_update(l: &Layout, installed: &str) -> Result<PathBuf> {
     let _ = fs::remove_dir_all(&l.updates);
     fs::create_dir_all(&l.updates)?;
     let tgz = l.updates.join("dokuwiki.tgz");
-    curl_file(DOWNLOAD_URL, &tgz)?;
-    snapshot::verify_optional_sha256(&tgz, "ARCHIVEWIKI_DOKUWIKI_SHA256")
+    let version = curl_text(VERSION_URL)?;
+    let version = version_key(&version);
+    if !valid_version(&version) || !is_newer(&version, installed) {
+        bail!("The advertised DokuWiki release is not a newer valid version.");
+    }
+    let tag = format!("release-{version}");
+    let asset_name = format!("dokuwiki-{version}.tgz");
+    let digest = match std::env::var("ARCHIVEWIKI_DOKUWIKI_SHA256") {
+        Ok(expected) => expected,
+        Err(_) => release_asset_sha256("dokuwiki/dokuwiki", &tag, &asset_name)?,
+    };
+    let url = format!("https://github.com/dokuwiki/dokuwiki/releases/download/{tag}/{asset_name}");
+    curl_file(&url, &tgz)?;
+    snapshot::verify_sha256(&tgz, &digest)
         .context("the downloaded DokuWiki package failed integrity verification")?;
     let staging = l.updates.join("staging");
     fs::create_dir_all(&staging)?;
@@ -3568,11 +3615,10 @@ fn prepare_update(l: &Layout, installed: &str) -> Result<PathBuf> {
         bail!("The download could not be unpacked or doesn't look like DokuWiki.");
     }
     let got = fs::read_to_string(staging.join("VERSION")).unwrap_or_default();
-    if !is_newer(&got, installed) {
+    if version_key(&got) != version {
         bail!(
-            "The download is {} but you have {}. The download site may lag behind; try again later.",
-            version_key(&got),
-            version_key(installed)
+            "The archive reports DokuWiki {} but release metadata advertised {version}.",
+            version_key(&got)
         );
     }
     let _ = fs::remove_file(&tgz);
@@ -3834,146 +3880,6 @@ fn restore_flow(proxy: &EventLoopProxy<UserEvent>) {
             let _ = proxy.send_event(UserEvent::RestoreBackup { zip });
         }
     }
-}
-
-#[derive(Debug)]
-struct ArchiveEntry {
-    name: String,
-    is_dir: bool,
-}
-
-/// Inspect a ZIP before touching the filesystem. zipinfo exposes Unix file types, so
-/// archives containing symlinks or special files are rejected before extraction.
-fn inspect_archive(zip: &Path) -> Result<Vec<ArchiveEntry>> {
-    let names = Command::new("/usr/bin/zipinfo").arg("-1").arg(zip).output()?;
-    if !names.status.success() {
-        bail!("It isn't a readable zip file.");
-    }
-    let names = String::from_utf8(names.stdout).context("ZIP contains filenames that aren't valid UTF-8")?;
-    let details = Command::new("/usr/bin/zipinfo").arg("-s").arg(zip).output()?;
-    if !details.status.success() {
-        bail!("The ZIP entry details couldn't be read.");
-    }
-    let details = String::from_utf8(details.stdout).context("ZIP entry details aren't valid UTF-8")?;
-    let mut kinds = Vec::new();
-    for line in details.lines() {
-        let b = line.as_bytes();
-        if b.len() < 10 || !matches!(b[0], b'-' | b'd' | b'l' | b'b' | b'c' | b'p' | b's' | b'?') {
-            continue;
-        }
-        if !b[1..10].iter().all(|c| matches!(*c, b'r' | b'w' | b'x' | b's' | b'S' | b't' | b'T' | b'-' | b'?')) {
-            continue;
-        }
-        kinds.push(b[0]);
-    }
-    let names: Vec<&str> = names.lines().collect();
-    if names.is_empty() || names.len() != kinds.len() {
-        bail!("The ZIP has ambiguous or unsupported entry names.");
-    }
-
-    let mut entries = Vec::with_capacity(names.len());
-    let mut seen = std::collections::HashSet::new();
-    let mut has_data = false;
-    let mut has_conf = false;
-    for (name, kind) in names.into_iter().zip(kinds) {
-        let is_dir = name.ends_with('/');
-        if (is_dir && kind != b'd') || (!is_dir && kind != b'-') {
-            bail!("The ZIP contains a symbolic link or a non-regular file: {name}");
-        }
-        if name.contains('\\') || name.chars().any(|c| matches!(c, '*' | '?' | '[' | ']')) {
-            bail!("The ZIP contains an unsupported entry name: {name}");
-        }
-        let path = name.strip_suffix('/').unwrap_or(name);
-        let parts: Vec<&str> = path.split('/').collect();
-        if parts.iter().any(|part| part.is_empty() || *part == "." || *part == "..") {
-            bail!("The ZIP contains an unsafe entry path: {name}");
-        }
-        let metadata = path == snapshot::MANIFEST || path == "SNAPSHOT.txt";
-        let archive_root = parts.first().copied().unwrap_or_default();
-        let in_wiki_tree = archive_root == "data" || archive_root == "conf";
-        if !(metadata || in_wiki_tree)
-            || (metadata && (is_dir || parts.len() != 1))
-            || (in_wiki_tree && parts.len() < 2 && !is_dir)
-            || (in_wiki_tree && parts.len() == 1 && !is_dir)
-        {
-            bail!("It doesn't look like an ArchiveWiki backup (unexpected entry: {name}).");
-        }
-        if !seen.insert(path.to_string()) {
-            bail!("The ZIP contains a duplicate entry: {name}");
-        }
-        has_data |= archive_root == "data";
-        has_conf |= archive_root == "conf";
-        entries.push(ArchiveEntry { name: name.to_string(), is_dir });
-    }
-    if !has_data || !has_conf {
-        bail!("The ZIP must contain both wiki data and configuration.");
-    }
-    Ok(entries)
-}
-
-fn validate_backup_zip(zip: &Path) -> Result<()> {
-    inspect_archive(zip).map(|_| ())
-}
-
-/// Extract only prevalidated regular files, one at a time, into a new staging folder.
-fn extract_archive(zip: &Path, stage: &Path, entries: &[ArchiveEntry]) -> Result<()> {
-    let _ = fs::remove_dir_all(stage);
-    fs::create_dir_all(stage)?;
-    for entry in entries {
-        let relative = entry.name.strip_suffix('/').unwrap_or(&entry.name);
-        let target = stage.join(relative);
-        if entry.is_dir {
-            fs::create_dir_all(&target)?;
-            continue;
-        }
-        let parent = target.parent().context("archive entry has no parent folder")?;
-        fs::create_dir_all(parent)?;
-        let file = fs::OpenOptions::new().write(true).create_new(true).open(&target)
-            .with_context(|| format!("creating staged file {}", target.display()))?;
-        let status = Command::new("/usr/bin/unzip")
-            .arg("-p").arg(zip).arg(&entry.name)
-            .stdout(Stdio::from(file)).stderr(Stdio::null()).status()?;
-        if !status.success() {
-            bail!("The ZIP entry couldn't be extracted: {}", entry.name);
-        }
-    }
-    Ok(())
-}
-
-/// Replace data and configuration as one operation; restore both previous folders if a rename fails.
-fn install_staged_restore(wiki: &Path, stage: &Path, previous: &Path) -> Result<()> {
-    let _ = fs::remove_dir_all(previous);
-    fs::create_dir_all(previous)?;
-    let mut saved: Vec<&str> = Vec::new();
-    for top in ["data", "conf"] {
-        let current = wiki.join(top);
-        if fs::symlink_metadata(&current).is_ok() {
-            if let Err(e) = fs::rename(&current, previous.join(top)) {
-                for old in saved.iter().rev() {
-                    let _ = fs::rename(previous.join(*old), wiki.join(*old));
-                }
-                return Err(e).with_context(|| format!("setting aside the current {top} folder"));
-            }
-            saved.push(top);
-        }
-    }
-    let install_result = (|| -> Result<()> {
-        for top in ["data", "conf"] {
-            fs::rename(stage.join(top), wiki.join(top))
-                .with_context(|| format!("installing restored {top}"))?;
-        }
-        Ok(())
-    })();
-    if let Err(e) = install_result {
-        for top in ["data", "conf"] {
-            let _ = fs::remove_dir_all(wiki.join(top));
-        }
-        for old in saved.iter().rev() {
-            let _ = fs::rename(previous.join(*old), wiki.join(*old));
-        }
-        return Err(e).context("restore failed; the previous wiki folders were put back");
-    }
-    Ok(())
 }
 
 /// Main thread, server stopped. Stages and validates the archive before replacing live files.
@@ -4816,5 +4722,25 @@ fn main() {
     if let Err(e) = run() {
         alert(&format!("{e:#}"));
         std::process::exit(1);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::release_asset_sha256_from_json;
+
+    #[test]
+    fn reads_expected_digest_for_named_release_asset() {
+        let json = r#"{"assets":[{"name":"php.tgz","digest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}]}"#;
+        assert_eq!(
+            release_asset_sha256_from_json(json, "php.tgz").unwrap(),
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        );
+    }
+
+    #[test]
+    fn rejects_release_assets_without_sha256_metadata() {
+        let json = r#"{"assets":[{"name":"php.tgz","digest":null}]}"#;
+        assert!(release_asset_sha256_from_json(json, "php.tgz").is_err());
     }
 }

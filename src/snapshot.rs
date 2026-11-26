@@ -20,14 +20,10 @@ pub fn sha256_file(p: &Path) -> Result<String> {
     Ok(format!("{:x}", h.finalize()))
 }
 
-/// Verify a downloaded file when an operator supplies an exact SHA-256 expectation.
-pub fn verify_optional_sha256(p: &Path, env_name: &str) -> Result<()> {
-    let Ok(expected) = std::env::var(env_name) else {
-        return Ok(());
-    };
+pub fn verify_sha256(p: &Path, expected: &str) -> Result<()> {
     let expected = expected.trim().to_ascii_lowercase();
     if expected.len() != 64 || !expected.bytes().all(|b| b.is_ascii_hexdigit()) {
-        anyhow::bail!("{env_name} must contain exactly 64 hexadecimal characters");
+        anyhow::bail!("expected SHA-256 must contain exactly 64 hexadecimal characters");
     }
     let got = sha256_file(p)?;
     if got != expected {
@@ -239,23 +235,10 @@ mod tests {
     }
 
     #[test]
-    fn optional_sha256_allows_an_unconfigured_download() {
-        let d = temp("optional-missing-env");
+    fn sha256_verification_rejects_a_mismatch() {
+        let d = temp("checksum-mismatch");
         let p = d.join("artifact.bin");
         fs::write(&p, b"artifact").unwrap();
-        let env_name = "AW_TEST_OPTIONAL_SHA256_UNSET";
-        std::env::remove_var(env_name);
-        verify_optional_sha256(&p, env_name).unwrap();
-    }
-
-    #[test]
-    fn optional_sha256_rejects_a_mismatch() {
-        let d = temp("optional-mismatch");
-        let p = d.join("artifact.bin");
-        fs::write(&p, b"artifact").unwrap();
-        let env_name = "AW_TEST_OPTIONAL_SHA256_MISMATCH";
-        std::env::set_var(env_name, "0".repeat(64));
-        assert!(verify_optional_sha256(&p, env_name).is_err());
-        std::env::remove_var(env_name);
+        assert!(verify_sha256(&p, &"0".repeat(64)).is_err());
     }
 }

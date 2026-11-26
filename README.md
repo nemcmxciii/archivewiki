@@ -29,13 +29,16 @@ Dev run: `./scripts/fetch-deps.sh && cargo run --locked`.
 
 ## Dependency integrity
 
-The vendored DokuWiki archive has an expected SHA-256 value in `dependencies.sha256`.
-`scripts/fetch-deps.sh` verifies it before building. PHP downloads can be verified by
-setting `PHP_SHA256` to the SHA-256 of `php.tgz`. Runtime DokuWiki and PHP updates may
-also be verified by setting
-`ARCHIVEWIKI_DOKUWIKI_SHA256` or `ARCHIVEWIKI_PHP_SHA256` to the exact 64-character
-SHA-256 of the downloaded archive. A mismatch stops the update before extraction or
-installation.
+`dependencies.lock` pins the build-time DokuWiki and PHP versions and their GitHub
+Release SHA-256 digests. The vendored DokuWiki tar has its own checksum in
+`dependencies.sha256`. Build and runtime update paths verify archives before
+extraction. To update the bundled versions, build/publish the desired PHP release,
+update the version and matching GitHub asset digest in `dependencies.lock`, refresh
+the vendored DokuWiki tar and `dependencies.sha256` when changing DokuWiki, then run
+the validation workflow before merging. `PHP_VERSION`, `PHP_URL`, `PHP_SHA256`,
+`DOKUWIKI_VERSION`, and `DOKUWIKI_SHA256` support explicit build-time overrides;
+`ARCHIVEWIKI_PHP_SHA256` and `ARCHIVEWIKI_DOKUWIKI_SHA256` support runtime updater
+overrides.
 
 ## How it works
 - `Contents/Resources/{php,dokuwiki}` ship inside the .app (pristine, read-only).
@@ -185,6 +188,6 @@ The app icon comes from `assets/icon.png`; the wiki branding files are in `asset
 - To enable logins/ACLs later: set `$conf['useacl']=1`, copy `conf/users.auth.php.dist` and `conf/acl.auth.php.dist`
   to the non-`.dist` names, and add a user.
 - PHP: a static build made by the **Build PHP** workflow (static-php-cli, 8.3 line, includes `pdo_sqlite` for the sqlite/struct plugins).
-  Run Actions → "Build PHP" once before the first "Build ArchiveWiki"; the build script downloads it from this repo's Releases
-  (override with `PHP_URL`, `PHP_MINOR`, or `ARCHIVEWIKI_REPO`). The repo must be public (both read its public release feed).
+  The build script downloads the pinned version from this repo's Releases. Run the workflow to publish a newer build, then update
+  `dependencies.lock` to select it. The repo must be public for the app and build script to download the release.
 - The app is ad-hoc signed, which is fine for a locally built app. If you copy it to another Mac, right-click → Open.
