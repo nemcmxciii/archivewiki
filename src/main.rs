@@ -55,6 +55,89 @@ const BRANDING_VERSION: u32 = 7;
 const LOGO_DARK_PNG: &[u8] = include_bytes!("../assets/branding/logo_dark.png");
 const THEME_CSS: &str = include_str!("theme.css");
 const BRANDING_CSS: &str = "\n/* ArchiveWiki branding v2: the logo image includes the wordmark */\n#dokuwiki__header .logo img { height: 64px; width: auto; }\n#dokuwiki__header .logo span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }\n";
+const NAVIGATION_TOOLBAR_SCRIPT: &str = r#"
+(function () {
+  function installToolbar() {
+    if (!document.body || document.getElementById("archivewiki-navigation-toolbar")) return;
+
+    var host = document.createElement("div");
+    host.id = "archivewiki-navigation-toolbar";
+    host.setAttribute("role", "group");
+    host.setAttribute("aria-label", "ArchiveWiki navigation");
+    host.style.cssText = "position:sticky;top:0;z-index:2147483647;display:block;width:100%;";
+    function syncColorScheme() {
+      var theme = document.documentElement.getAttribute("data-aw-theme");
+      host.style.colorScheme = theme === "light" || theme === "dark" ? theme : "light dark";
+    }
+    syncColorScheme();
+
+    var shadow = host.attachShadow({ mode: "open" });
+    shadow.innerHTML = `
+      <style>
+        :host { display: block; }
+        .toolbar {
+          box-sizing: border-box;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          min-height: 48px;
+          padding: 6px 12px;
+          color: CanvasText;
+          background: Canvas;
+          border-bottom: 1px solid #8c959f;
+          font: 13px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+        button {
+          display: inline-flex;
+          align-items: center;
+          gap: 7px;
+          min-height: 34px;
+          padding: 5px 11px;
+          border: 1px solid #8c959f;
+          border-radius: 6px;
+          color: inherit;
+          background: Canvas;
+          font: inherit;
+          cursor: pointer;
+        }
+        button:hover { background: rgba(127, 127, 127, .12); }
+        button:focus-visible { outline: 2px solid #0969da; outline-offset: 2px; }
+        svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; }
+      </style>
+      <div class="toolbar">
+        <button type="button" aria-label="Back" title="Back">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M7 3 2 8l5 5M2 8h12"/></svg>
+          <span>Back</span>
+        </button>
+        <button type="button" aria-label="Forward" title="Forward">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m9 3 5 5-5 5m5-5H2"/></svg>
+          <span>Forward</span>
+        </button>
+        <button type="button" aria-label="Refresh" title="Refresh">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M13.5 5.5A5.5 5.5 0 0 0 3 4L1.5 5.5M1.5 2.5v3h3M2.5 10.5A5.5 5.5 0 0 0 13 12l1.5-1.5m0 3v-3h-3"/></svg>
+          <span>Refresh</span>
+        </button>
+      </div>`;
+
+    var buttons = shadow.querySelectorAll("button");
+    buttons[0].addEventListener("click", function () { history.back(); });
+    buttons[1].addEventListener("click", function () { history.forward(); });
+    buttons[2].addEventListener("click", function () { location.reload(); });
+    document.body.insertBefore(host, document.body.firstChild);
+
+    new MutationObserver(syncColorScheme).observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-aw-theme"]
+    });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", installToolbar, { once: true });
+  } else {
+    installToolbar();
+  }
+})();
+"#;
 const JOURNAL_BUTTONS_CSS: &str = r#"
 /* ArchiveWiki journal action buttons */
 .wrap_aw-journal-actions { display: flex; flex-wrap: wrap; gap: .7rem; margin: 1.2rem 0; }
@@ -4403,9 +4486,14 @@ fn run() -> Result<()> {
 
     let nav_origin = origin.clone();
     let popup_origin = origin.clone();
+    let initialization_script = format!(
+        "{}{}",
+        appearance_script(&appearance_mode(&layout)),
+        NAVIGATION_TOOLBAR_SCRIPT
+    );
     let webview = WebViewBuilder::new()
         .with_url(start_url(&layout, &origin))
-        .with_initialization_script(appearance_script(&appearance_mode(&layout)))
+        .with_initialization_script(&initialization_script)
         .with_navigation_handler(move |u: String| {
             if let Some(path) = app_path(&nav_origin, &u) {
                 if let Some(action) = journal_action(path) {
