@@ -20,6 +20,22 @@ pub fn sha256_file(p: &Path) -> Result<String> {
     Ok(format!("{:x}", h.finalize()))
 }
 
+/// Verify a downloaded file when an operator supplies an exact SHA-256 expectation.
+pub fn verify_optional_sha256(p: &Path, env_name: &str) -> Result<()> {
+    let Ok(expected) = std::env::var(env_name) else {
+        return Ok(());
+    };
+    let expected = expected.trim().to_ascii_lowercase();
+    if expected.len() != 64 || !expected.bytes().all(|b| b.is_ascii_hexdigit()) {
+        anyhow::bail!("{env_name} must contain exactly 64 hexadecimal characters");
+    }
+    let got = sha256_file(p)?;
+    if got != expected {
+        anyhow::bail!("SHA-256 mismatch: expected {expected}, got {got}");
+    }
+    Ok(())
+}
+
 fn walk(root: &Path, rel: &Path, out: &mut Vec<PathBuf>) -> io::Result<()> {
     for e in fs::read_dir(root.join(rel))? {
         let e = e?;
@@ -119,7 +135,10 @@ pub fn verify_tree(root: &Path) -> Result<Verification> {
         {
             anyhow::bail!("unsafe path in MANIFEST.sha256: {path}");
         }
-        if expected.insert(path.to_string(), hash.to_ascii_lowercase()).is_some() {
+        if expected
+            .insert(path.to_string(), hash.to_ascii_lowercase())
+            .is_some()
+        {
             anyhow::bail!("duplicate path in MANIFEST.sha256: {path}");
         }
     }
@@ -168,7 +187,11 @@ mod tests {
         fs::create_dir_all(root.join("data/media")).unwrap();
         fs::create_dir_all(root.join("conf")).unwrap();
         fs::write(root.join("data/pages/start.txt"), "hello\n").unwrap();
-        fs::write(root.join("data/pages/people/jane doe.txt"), "Jane — née Smith\n").unwrap();
+        fs::write(
+            root.join("data/pages/people/jane doe.txt"),
+            "Jane — née Smith\n",
+        )
+        .unwrap();
         fs::write(root.join("data/media/blob.bin"), vec![7u8; 100_000]).unwrap();
         fs::write(root.join("conf/local.php"), "<?php\n").unwrap();
     }
@@ -213,5 +236,26 @@ mod tests {
         let d = temp("nomanifest");
         sample(&d);
         assert!(verify_tree(&d).is_err());
+    }
+
+    #[test]
+    fn optional_sha256_allows_an_unconfigured_download() {
+        let d = temp("optional-missing-env");
+        let p = d.join("artifact.bin");
+        fs::write(&p, b"artifact").unwrap();
+        let env_name = "AW_TEST_OPTIONAL_SHA256_UNSET";
+        std::env::remove_var(env_name);
+        verify_optional_sha256(&p, env_name).unwrap();
+    }
+
+    #[test]
+    fn optional_sha256_rejects_a_mismatch() {
+        let d = temp("optional-mismatch");
+        let p = d.join("artifact.bin");
+        fs::write(&p, b"artifact").unwrap();
+        let env_name = "AW_TEST_OPTIONAL_SHA256_MISMATCH";
+        std::env::set_var(env_name, "0".repeat(64));
+        assert!(verify_optional_sha256(&p, env_name).is_err());
+        std::env::remove_var(env_name);
     }
 }

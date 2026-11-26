@@ -3,7 +3,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 bash scripts/fetch-deps.sh
-cargo build --release
+cargo build --release --locked
 
 APP="dist/ArchiveWiki.app"
 rm -rf "$APP"; mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"

@@ -3400,7 +3400,7 @@ fn latest_php_in_line(listing: &str, major: u32, minor: u32) -> Option<String> {
             continue;
         }
         if let Some(v) = parse_ver(seg) {
-            if v.0 == major && v.1 == minor && best.map_or(true, |b| v > b) {
+            if v.0 == major && v.1 == minor && best.is_none_or(|b| v > b) {
                 best = Some(v);
             }
         }
@@ -3477,6 +3477,8 @@ fn prepare_php_update(l: &Layout, new_ver: &str) -> Result<PathBuf> {
     fs::create_dir_all(&l.updates)?;
     let tgz = l.updates.join("php.tgz");
     curl_file(&php_download_url(new_ver), &tgz)?;
+    snapshot::verify_optional_sha256(&tgz, "ARCHIVEWIKI_PHP_SHA256")
+        .context("the downloaded PHP package failed integrity verification")?;
     let stage = l.updates.join("php-stage");
     fs::create_dir_all(&stage)?;
     let st = Command::new("/usr/bin/tar").arg("-xzf").arg(&tgz).arg("-C").arg(&stage).arg("php").status()?;
@@ -3551,6 +3553,8 @@ fn prepare_update(l: &Layout, installed: &str) -> Result<PathBuf> {
     fs::create_dir_all(&l.updates)?;
     let tgz = l.updates.join("dokuwiki.tgz");
     curl_file(DOWNLOAD_URL, &tgz)?;
+    snapshot::verify_optional_sha256(&tgz, "ARCHIVEWIKI_DOKUWIKI_SHA256")
+        .context("the downloaded DokuWiki package failed integrity verification")?;
     let staging = l.updates.join("staging");
     fs::create_dir_all(&staging)?;
     let st = Command::new("/usr/bin/tar")
@@ -4486,7 +4490,7 @@ fn run() -> Result<()> {
 
     let nav_origin = origin.clone();
     let webview = WebViewBuilder::new()
-        .with_url(&start_url(&layout, &origin))
+        .with_url(start_url(&layout, &origin))
         .with_initialization_script(&appearance_script(&appearance_mode(&layout)))
         .with_navigation_handler(move |u: String| {
             if let Some(path) = u.strip_prefix(&nav_origin).filter(|rest| {

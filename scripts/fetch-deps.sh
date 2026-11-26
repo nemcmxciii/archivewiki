@@ -9,6 +9,13 @@ if [ ! -f "$RES/dokuwiki/doku.php" ]; then
   if [ -f vendor/dokuwiki.tar ]; then
     echo "    using vendor/dokuwiki.tar"
     SRC=vendor/dokuwiki.tar
+    if [ -f dependencies.sha256 ]; then
+      (grep "  vendor/dokuwiki.tar$" dependencies.sha256 | sha256sum -c - >/dev/null 2>&1) || \
+      (grep "  vendor/dokuwiki.tar$" dependencies.sha256 | shasum -a 256 -c - >/dev/null 2>&1) || {
+        echo "ERROR: vendor/dokuwiki.tar failed SHA-256 verification"
+        exit 1
+      }
+    fi
   else
     echo "    vendor/dokuwiki.tar not found; downloading stable"
     curl -fL "https://download.dokuwiki.org/src/dokuwiki/dokuwiki-stable.tgz" -o build/dokuwiki.tgz
@@ -57,6 +64,20 @@ print(max(c)[1])')
   tar -xzf build/php.tgz -C build php
   mv build/php "$RES/php"; chmod +x "$RES/php"
   xattr -d com.apple.quarantine "$RES/php" 2>/dev/null || true
+fi
+
+if [ -f dependencies.sha256 ] && [ -f "$RES/php" ]; then
+  if command -v sha256sum >/dev/null 2>&1; then
+    grep "  $RES/php$" dependencies.sha256 | sha256sum -c - >/dev/null 2>&1 || {
+      echo "ERROR: $RES/php failed SHA-256 verification"
+      exit 1
+    }
+  else
+    grep "  $RES/php$" dependencies.sha256 | shasum -a 256 -c - >/dev/null 2>&1 || {
+      echo "ERROR: $RES/php failed SHA-256 verification"
+      exit 1
+    }
+  fi
 fi
 
 echo "==> sanity check"

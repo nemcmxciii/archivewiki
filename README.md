@@ -25,7 +25,16 @@ open "dist/ArchiveWiki.app"
 Optional: put a 1024×1024 `assets/icon.png` in place before bundling for an app icon.
 DokuWiki comes from `vendor/dokuwiki.tar` (release "Mort" 2026-07-14c, requires PHP 8.2+). To use a different
 release, replace that tar (top folder `dokuwiki/`) and delete `resources/dokuwiki`; with no tar present the script downloads stable.
-Dev run: `./scripts/fetch-deps.sh && cargo run`.
+Dev run: `./scripts/fetch-deps.sh && cargo run --locked`.
+
+## Dependency integrity
+
+The vendored DokuWiki archive and bundled PHP binary have expected SHA-256 values in
+`dependencies.sha256`. `scripts/fetch-deps.sh` verifies both before building. Runtime
+DokuWiki and PHP updates may additionally be verified by setting
+`ARCHIVEWIKI_DOKUWIKI_SHA256` or `ARCHIVEWIKI_PHP_SHA256` to the exact 64-character
+SHA-256 of the downloaded archive. A mismatch stops the update before extraction or
+installation.
 
 ## How it works
 - `Contents/Resources/{php,dokuwiki}` ship inside the .app (pristine, read-only).
