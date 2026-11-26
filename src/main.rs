@@ -233,11 +233,90 @@ const APP_UI_SCRIPT: &str = r##"
     section.appendChild(clear);
   }
 
+  function installNewPageForm() {
+    if (document.getElementById("archivewiki-new-page")) return;
+    var content = document.querySelector("#dokuwiki__content .page");
+    if (!content) return;
+    var heading = findHeading(content, "Find or add a page");
+    if (!heading || !heading.parentNode) return;
+
+    var style = document.createElement("style");
+    style.id = "archivewiki-new-page-style";
+    style.textContent = `
+      #archivewiki-new-page { margin: .8em 0 1.2em; }
+      #archivewiki-new-page label { display: block; margin-bottom: .3em; font-weight: 600; }
+      #archivewiki-new-page input { box-sizing: border-box; width: min(100%, 28rem); min-height: 2.5rem; padding: .45rem .6rem; font: inherit; }
+      #archivewiki-new-page button { min-height: 2.4rem; margin-top: .6rem; padding: .4rem .8rem; cursor: pointer; }
+      #archivewiki-new-page :focus-visible { outline: 3px solid #0969da; outline-offset: 2px; }
+    `;
+    document.head.appendChild(style);
+
+    var form = document.createElement("form");
+    form.id = "archivewiki-new-page";
+    var label = document.createElement("label");
+    label.htmlFor = "archivewiki-new-page-title";
+    label.textContent = "Page title";
+    var input = document.createElement("input");
+    input.id = "archivewiki-new-page-title";
+    input.type = "text";
+    input.maxLength = 120;
+    input.required = true;
+    input.placeholder = "e.g. Family trip";
+    input.setAttribute("aria-describedby", "archivewiki-new-page-help");
+    var help = document.createElement("p");
+    help.id = "archivewiki-new-page-help";
+    help.textContent = "We'll prepare the page name for you. If it already exists, it will open without changes.";
+    var button = document.createElement("button");
+    button.type = "submit";
+    button.textContent = "Create or open page";
+    var status = document.createElement("p");
+    status.id = "archivewiki-new-page-status";
+    status.setAttribute("role", "status");
+    status.setAttribute("aria-live", "polite");
+    form.appendChild(label);
+    form.appendChild(input);
+    form.appendChild(help);
+    form.appendChild(button);
+    form.appendChild(status);
+    heading.parentNode.insertBefore(form, heading.nextSibling);
+
+    form.addEventListener("submit", async function (event) {
+      event.preventDefault();
+      if (!input.value.trim()) {
+        status.textContent = "Enter a page title.";
+        input.focus();
+        return;
+      }
+
+      button.disabled = true;
+      status.textContent = "Preparing the page…";
+      try {
+        var response = await fetch("/_archivewiki/page-check", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+          body: new URLSearchParams({ title: input.value.trim() })
+        });
+        var result = await response.json();
+        if (!response.ok) throw new Error(result.error || "The page name could not be used.");
+        if (typeof result.id !== "string" || !result.id) throw new Error("Enter a title with letters or numbers.");
+
+        var query = new URLSearchParams({ id: result.id });
+        if (!result.exists) query.set("do", "edit");
+        window.location.assign("/doku.php?" + query.toString());
+      } catch (error) {
+        status.textContent = error.message || "Could not prepare the page. Please try again.";
+        button.disabled = false;
+      }
+    });
+  }
+
   function initializeRecentPages() {
     var pageId = currentPageId();
     if (pageId === null) return;
     if (pageId === "start") {
       renderRecentPages();
+      installNewPageForm();
       return;
     }
 
@@ -294,7 +373,7 @@ const BROKEN_JOURNAL_BUTTON_CARDS_CSS: &str = r#"
 "#;
 
 // Starter structure, installed once into the wiki; only files that don't exist yet are written.
-const STARTER_VERSION: u32 = 23;
+const STARTER_VERSION: u32 = 24;
 const STARTER: &[(&str, &str)] = &[
     ("data/pages/start.txt", include_str!("starter/start.txt")),
     ("data/pages/sidebar.txt", include_str!("starter/sidebar.txt")),
@@ -3138,6 +3217,11 @@ fn install_starter(wiki: &Path) {
     starter::replace_if_unchanged(
         wiki,
         &[
+            (
+                "data/pages/start.txt",
+                include_str!("starter/legacy/start_v23.txt"),
+                include_str!("starter/start.txt"),
+            ),
             (
                 "data/pages/start.txt",
                 include_str!("starter/legacy/start_v22.txt"),

@@ -33,4 +33,39 @@ if ($token) {
         return true;
     }
 }
+
+if ($path === '/_archivewiki/page-check') {
+    header('Cache-Control: no-store');
+    header('Content-Type: application/json; charset=utf-8');
+
+    if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
+        http_response_code(405);
+        header('Allow: POST');
+        echo json_encode(['error' => 'Use POST to check a page title.']);
+        return true;
+    }
+
+    $title = $_POST['title'] ?? null;
+    if (!is_string($title) || trim($title) === '' || strlen($title) > 512) {
+        http_response_code(422);
+        echo json_encode(['error' => 'Enter a page title up to 120 characters long.']);
+        return true;
+    }
+
+    require_once __DIR__ . '/inc/init.php';
+    $title = str_replace([':', ';', '/', '\\'], ' ', trim($title));
+    $id = cleanID($title);
+    if ($id === '' || strlen($id) > 220 || strpos($id, ':') !== false) {
+        http_response_code(422);
+        echo json_encode(['error' => 'Use a shorter title containing letters or numbers.']);
+        return true;
+    }
+
+    echo json_encode([
+        'id' => $id,
+        'exists' => page_exists($id),
+    ], JSON_UNESCAPED_UNICODE);
+    return true;
+}
+
 return false; // let the built-in server handle it normally
