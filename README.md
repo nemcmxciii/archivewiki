@@ -50,8 +50,7 @@ overrides.
 - Home offers a title-based page creation flow and lists your 8 most recently visited pages; recent pages are stored on
   this Mac and can be cleared there. If a title already exists, it opens without editing.
 - An always-visible in-app toolbar provides **Back**, **Forward** and **Refresh**. Menus: Edit (copy/paste), View (Home,
-  Back/Forward, Refresh), File (Print, **Back Up Wiki…** → zip in
-  `~/Documents/ArchiveWiki Backups/`, Show Wiki Folder).
+  Back/Forward, Refresh), File (Print, **Back Up & Restore**, Show Wiki Folder).
 - Logs: `php-server.log` in the Application Support folder.
 
 ## Genealogy
@@ -88,13 +87,15 @@ Sources and licenses: `THIRD_PARTY_NOTICES.md`. The plugin versions are untested
 Admin → Extension Manager after the first launch.
 
 ## Backups
-- **Automatic:** once a day while the app is open (first check shortly after launch), ArchiveWiki saves `data/` and `conf/` to
-  `~/Documents/ArchiveWiki Backups/auto-backup-<time>.zip` and keeps the newest 10. Toggle: File → *Back Up Automatically (Daily)*.
-  Manual backups (*Back Up Wiki…*) and the safety backups made before updates/restores are never deleted automatically.
-- **Restore:** File → *Restore from Backup…* lets you pick a zip made by this app. It checks the file, rejects unsafe paths and
+- For everyday use, open **File → Back Up & Restore**:
+  - **Create Backup…** saves a copy of your pages, media, and settings as a zip in `~/Documents/ArchiveWiki Backups/`.
+  - **Back Up Automatically (Daily)** is on by default. It runs while the app is open and keeps the newest 10 automatic backups.
+  - **Restore from Backup…** lets you choose a backup zip. It checks the file, rejects unsafe paths and
   symbolic links, asks you to confirm, saves your current wiki as a `pre-restore` backup, stages the archive, then replaces `data/`
   and `conf/` together before restarting the server. If staging or replacement fails, the previous folders are put back.
   (The data and configuration that were replaced are kept in `Application Support/ArchiveWiki/restore-previous/` until the next restore.)
+- Older automatic backups are removed; manual and safety backups made before updates/restores are never deleted automatically.
+- **Snapshots & Verification (Advanced)** is for checking file integrity with checksums; it is optional for everyday backups. Snapshots can also be restored.
 - Backups are plain zips on your own disk; turn on FileVault if you want them encrypted at rest.
 
 ## App lock (optional)
@@ -111,10 +112,10 @@ What it does **not** do: it doesn't encrypt anything. The wiki's files stay read
 The prompt comes from a small helper (`helper/auth.swift`) built into the app by `scripts/bundle.sh`.
 
 ## Snapshots (integrity checking)
-**File → Create Archive Snapshot…** saves `~/Documents/ArchiveWiki Snapshots/ArchiveWiki-snapshot-<time>.zip`: your `data/` and `conf/`
+**File → Back Up & Restore → Snapshots & Verification (Advanced) → Create Archive Snapshot…** saves `~/Documents/ArchiveWiki Snapshots/ArchiveWiki-snapshot-<time>.zip`: your `data/` and `conf/`
 (pages, older revisions, media, settings; no caches), plus `MANIFEST.sha256` (a SHA-256 for every file) and `SNAPSHOT.txt`
 (when, app/DokuWiki/PHP versions, file count). The zip's own checksum is saved beside it as `<name>.zip.sha256`.
-**File → Verify Snapshot…** safely stages a snapshot and recomputes every hash, reporting changed, missing or unexpected files.
+**Verify Snapshot…** in the same submenu safely stages a snapshot and recomputes every hash, reporting changed, missing or unexpected files.
 You can also verify with no ArchiveWiki at all: unzip, then run `shasum -a 256 -c MANIFEST.sha256` inside the folder.
 A snapshot is also a valid backup: *Restore from Backup…* accepts it.
 

@@ -373,7 +373,7 @@ const BROKEN_JOURNAL_BUTTON_CARDS_CSS: &str = r#"
 "#;
 
 // Starter structure, installed once into the wiki; only files that don't exist yet are written.
-const STARTER_VERSION: u32 = 25;
+const STARTER_VERSION: u32 = 26;
 const STARTER: &[(&str, &str)] = &[
     ("data/pages/start.txt", include_str!("starter/start.txt")),
     ("data/pages/sidebar.txt", include_str!("starter/sidebar.txt")),
@@ -3219,6 +3219,11 @@ fn install_starter(wiki: &Path) {
         &[
             (
                 "data/pages/start.txt",
+                include_str!("starter/legacy/start_v25.txt"),
+                include_str!("starter/start.txt"),
+            ),
+            (
+                "data/pages/start.txt",
                 include_str!("starter/legacy/start_v24.txt"),
                 include_str!("starter/start.txt"),
             ),
@@ -4175,7 +4180,7 @@ fn restore_flow(proxy: &EventLoopProxy<UserEvent>) {
     }
     let name = zip.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
     let msg = format!(
-        "Restore \"{name}\"?\n\nYour current wiki is saved first (a pre-restore backup), then its pages, media, and settings are replaced with the contents of this backup. Changes made since the backup was created will be removed."
+        "Restore from \"{name}\"?\n\nArchiveWiki will first save a safety copy of the current archive. Then it will replace your pages, uploaded files, and settings with those in this backup. Any changes made since the backup was created will be removed."
     );
     let script = format!(
         "display dialog \"{}\" with title \"{APP_NAME}\" buttons {{\"Cancel\", \"Restore\"}} default button \"Cancel\" cancel button \"Cancel\" with icon caution",
@@ -4582,17 +4587,26 @@ fn build_menu(
     }
 
     let file = Submenu::new("File", true);
+    let snapshots = Submenu::new("Snapshots & Verification (Advanced)", true);
+    snapshots.append_items(&[
+        &MenuItem::with_id("snapshot", "Create Archive Snapshot…", true, None),
+        &MenuItem::with_id("verifysnap", "Verify Snapshot…", true, None),
+    ])?;
+    let backups = Submenu::new("Back Up & Restore", true);
+    backups.append_items(&[
+        &MenuItem::with_id("backup", "Create Backup…", true, acc(Modifiers::META | Modifiers::SHIFT, Code::KeyB)),
+        &backup_item,
+        &MenuItem::with_id("restore", "Restore from Backup…", true, None),
+        &PredefinedMenuItem::separator(),
+        &snapshots,
+    ])?;
     file.append_items(&[
         &MenuItem::with_id("newnote", "New Note", true, acc(Modifiers::META | Modifiers::SHIFT, Code::KeyN)),
         &MenuItem::with_id("todayjournal", "Today's Journal Entry", true, acc(Modifiers::META | Modifiers::SHIFT, Code::KeyJ)),
         &hotkey_item,
         &PredefinedMenuItem::separator(),
         &MenuItem::with_id("print", "Print…", true, acc(Modifiers::META, Code::KeyP)),
-        &MenuItem::with_id("backup", "Back Up Wiki…", true, acc(Modifiers::META | Modifiers::SHIFT, Code::KeyB)),
-        &backup_item,
-        &MenuItem::with_id("restore", "Restore from Backup…", true, None),
-        &MenuItem::with_id("snapshot", "Create Archive Snapshot…", true, None),
-        &MenuItem::with_id("verifysnap", "Verify Snapshot…", true, None),
+        &backups,
         &PredefinedMenuItem::separator(),
         &lock_require,
         &idle_submenu,
