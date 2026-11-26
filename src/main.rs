@@ -32,7 +32,9 @@ use global_hotkey::{
     hotkey::{Code as HkCode, HotKey, Modifiers as HkMods},
     GlobalHotKeyEvent, GlobalHotKeyManager, HotKeyState,
 };
+use std::sync::Arc;
 use wry::WebViewBuilder;
+use wry::NewWindowResponse;
 
 /// True while the app is locked (window hidden, waiting for the user to authenticate).
 static LOCKED: AtomicBool = AtomicBool::new(false);
@@ -4244,7 +4246,7 @@ fn build_menu(
     appearance: &str,
     hotkey_on: bool,
 ) -> Result<(Menu, CheckMenuItem, CheckMenuItem, MenuState)> {
-    let acc = |m: Modifiers, c: Code| Some(Accelerator::new(Some(m), c));
+    let acc = |m: Modifiers, c: Code| Some(Accelerator::new(m, c));
     let menu = Menu::new();
 
     let auto_item = CheckMenuItem::with_id("autocheck", "Check for Updates Automatically", true, auto_check, None);
@@ -4277,12 +4279,12 @@ fn build_menu(
 
     let file = Submenu::new("File", true);
     file.append_items(&[
-        &MenuItem::with_id("newnote", "New Note", true, acc(Modifiers::SUPER | Modifiers::SHIFT, Code::KeyN)),
-        &MenuItem::with_id("todayjournal", "Today's Journal Entry", true, acc(Modifiers::SUPER | Modifiers::SHIFT, Code::KeyJ)),
+        &MenuItem::with_id("newnote", "New Note", true, acc(Modifiers::META | Modifiers::SHIFT, Code::KeyN)),
+        &MenuItem::with_id("todayjournal", "Today's Journal Entry", true, acc(Modifiers::META | Modifiers::SHIFT, Code::KeyJ)),
         &hotkey_item,
         &PredefinedMenuItem::separator(),
-        &MenuItem::with_id("print", "Print…", true, acc(Modifiers::SUPER, Code::KeyP)),
-        &MenuItem::with_id("backup", "Back Up Wiki…", true, acc(Modifiers::SUPER | Modifiers::SHIFT, Code::KeyB)),
+        &MenuItem::with_id("print", "Print…", true, acc(Modifiers::META, Code::KeyP)),
+        &MenuItem::with_id("backup", "Back Up Wiki…", true, acc(Modifiers::META | Modifiers::SHIFT, Code::KeyB)),
         &backup_item,
         &MenuItem::with_id("restore", "Restore from Backup…", true, None),
         &MenuItem::with_id("snapshot", "Create Archive Snapshot…", true, None),
@@ -4290,7 +4292,7 @@ fn build_menu(
         &PredefinedMenuItem::separator(),
         &lock_require,
         &idle_submenu,
-        &MenuItem::with_id("locknow", "Lock Now", true, acc(Modifiers::SUPER | Modifiers::SHIFT, Code::KeyL)),
+        &MenuItem::with_id("locknow", "Lock Now", true, acc(Modifiers::META | Modifiers::SHIFT, Code::KeyL)),
         &PredefinedMenuItem::separator(),
         &MenuItem::with_id("folder", "Show Wiki Folder in Finder", true, None),
         &PredefinedMenuItem::separator(),
@@ -4319,11 +4321,11 @@ fn build_menu(
 
     let view = Submenu::new("View", true);
     view.append_items(&[
-        &MenuItem::with_id("search", "Search Archive", true, acc(Modifiers::SUPER, Code::KeyK)),
-        &MenuItem::with_id("home", "Home", true, acc(Modifiers::SUPER | Modifiers::SHIFT, Code::KeyH)),
-        &MenuItem::with_id("back", "Back", true, acc(Modifiers::SUPER, Code::BracketLeft)),
-        &MenuItem::with_id("forward", "Forward", true, acc(Modifiers::SUPER, Code::BracketRight)),
-        &MenuItem::with_id("reload", "Reload", true, acc(Modifiers::SUPER, Code::KeyR)),
+        &MenuItem::with_id("search", "Search Archive", true, acc(Modifiers::META, Code::KeyK)),
+        &MenuItem::with_id("home", "Home", true, acc(Modifiers::META | Modifiers::SHIFT, Code::KeyH)),
+        &MenuItem::with_id("back", "Back", true, acc(Modifiers::META, Code::BracketLeft)),
+        &MenuItem::with_id("forward", "Forward", true, acc(Modifiers::META, Code::BracketRight)),
+        &MenuItem::with_id("reload", "Reload", true, acc(Modifiers::META, Code::KeyR)),
         &PredefinedMenuItem::separator(),
         &appearance_menu,
         &PredefinedMenuItem::fullscreen(None),
@@ -4371,9 +4373,9 @@ fn run() -> Result<()> {
             let _ = hotkey_proxy.send_event(UserEvent::QuickNote);
         }
     }));
-    MenuEvent::set_event_handler(Some(move |e| {
+    MenuEvent::set_event_handler(Some(Arc::new(move |e| {
         let _ = menu_proxy.send_event(UserEvent::Menu(e));
-    }));
+    })));
     let lock_on = lock_enabled(&layout);
     if lock_on {
         LOCKED.store(true, Ordering::SeqCst); // start locked: the window stays hidden until you authenticate
@@ -4397,7 +4399,7 @@ fn run() -> Result<()> {
     let nav_origin = origin.clone();
     let webview = WebViewBuilder::new()
         .with_url(start_url(&layout, &origin))
-        .with_initialization_script(&appearance_script(&appearance_mode(&layout)))
+        .with_initialization_script(appearance_script(&appearance_mode(&layout)))
         .with_navigation_handler(move |u: String| {
             if let Some(path) = u.strip_prefix(&nav_origin).filter(|rest| {
                 rest.is_empty() || rest.starts_with('/') || rest.starts_with('?') || rest.starts_with('#')
@@ -4415,9 +4417,9 @@ fn run() -> Result<()> {
                 false
             }
         })
-        .with_new_window_req_handler(|u: String| {
+        .with_new_window_req_handler(|u: String, _features| {
             open_external(&u);
-            false
+            NewWindowResponse::Deny
         })
         .with_download_started_handler(|_url: String, dest: &mut PathBuf| {
             if let (Some(dir), Some(name)) = (dirs::download_dir(), dest.file_name().map(|n| n.to_owned())) {

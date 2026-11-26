@@ -5,9 +5,9 @@ edition = "2021"
 description = "Self-contained DokuWiki desktop app (Rust + WKWebView + bundled PHP)"
 
 [dependencies]
-tao = "0.32"
-wry = "0.50"
-muda = "0.16"
+tao = "0.38"
+wry = "0.58"
+muda = "0.22"
 global-hotkey = "0.6"
 anyhow = "1"
 dirs = "5"
