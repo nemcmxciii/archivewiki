@@ -55,7 +55,7 @@ const BRANDING_VERSION: u32 = 7;
 const LOGO_DARK_PNG: &[u8] = include_bytes!("../assets/branding/logo_dark.png");
 const THEME_CSS: &str = include_str!("theme.css");
 const BRANDING_CSS: &str = "\n/* ArchiveWiki branding v2: the logo image includes the wordmark */\n#dokuwiki__header .logo img { height: 64px; width: auto; }\n#dokuwiki__header .logo span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }\n";
-const NAVIGATION_TOOLBAR_SCRIPT: &str = r#"
+const APP_UI_SCRIPT: &str = r##"
 (function () {
   function installToolbar() {
     if (!document.body || document.getElementById("archivewiki-navigation-toolbar")) return;
@@ -131,13 +131,135 @@ const NAVIGATION_TOOLBAR_SCRIPT: &str = r#"
     });
   }
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", installToolbar, { once: true });
-  } else {
+  var recentPagesKey = "archivewiki.recent-pages";
+  var maxRecentPages = 8;
+
+  function currentPageId() {
+    var url = new URL(window.location.href);
+    if (!url.pathname.endsWith("/doku.php")) return null;
+    var action = url.searchParams.get("do");
+    if (action && action !== "show") return null;
+    return url.searchParams.get("id") || "start";
+  }
+
+  function readRecentPages() {
+    try {
+      var pages = JSON.parse(window.localStorage.getItem(recentPagesKey) || "[]");
+      if (!Array.isArray(pages)) return [];
+      return pages.filter(function (page) {
+        return page && typeof page.id === "string" && page.id !== "start" &&
+          typeof page.title === "string" && page.title.length > 0;
+      }).slice(0, maxRecentPages);
+    } catch (_) {
+      return [];
+    }
+  }
+
+  function pageTitle(pageId) {
+    var heading = document.querySelector("#dokuwiki__content .page h1, #dokuwiki__content h1");
+    var title = heading && heading.textContent.trim();
+    return title || pageId.split(":").map(function (part) {
+      return part.replace(/_/g, " ");
+    }).join(" / ");
+  }
+
+  function findHeading(page, title) {
+    var headings = page.querySelectorAll("h1, h2, h3, h4");
+    for (var i = 0; i < headings.length; i++) {
+      if (headings[i].textContent.trim() === title) return headings[i];
+    }
+    return null;
+  }
+
+  function renderRecentPages() {
+    var content = document.querySelector("#dokuwiki__content");
+    if (!content) return;
+    var page = content.querySelector(".page") || content;
+    Array.prototype.forEach.call(page.querySelectorAll("p"), function (paragraph) {
+      if (paragraph.textContent.indexOf("This page does not show a list of recent page titles.") >= 0) {
+        paragraph.remove();
+      }
+    });
+    var heading = findHeading(page, "Recent pages");
+    if (!heading) {
+      heading = document.createElement("h2");
+      heading.textContent = "Recent pages";
+      var before = findHeading(page, "Find or add a page");
+      if (before && before.parentNode) {
+        before.parentNode.insertBefore(heading, before);
+      } else {
+        page.appendChild(heading);
+      }
+    }
+
+    var section = page.querySelector("#archivewiki-recent-pages");
+    if (!section) {
+      section = document.createElement("div");
+      section.id = "archivewiki-recent-pages";
+      heading.parentNode.insertBefore(section, heading.nextSibling);
+    }
+    while (section.firstChild) section.removeChild(section.firstChild);
+
+    var pages = readRecentPages();
+    if (!pages.length) {
+      var empty = document.createElement("p");
+      empty.textContent = "Pages you visit will appear here.";
+      section.appendChild(empty);
+      return;
+    }
+
+    var list = document.createElement("ul");
+    pages.forEach(function (recent) {
+      var item = document.createElement("li");
+      var link = document.createElement("a");
+      var query = new URLSearchParams();
+      query.set("id", recent.id);
+      link.href = "/doku.php?" + query.toString();
+      link.textContent = recent.title;
+      item.appendChild(link);
+      list.appendChild(item);
+    });
+    section.appendChild(list);
+
+    var clear = document.createElement("button");
+    clear.type = "button";
+    clear.textContent = "Clear recent pages";
+    clear.addEventListener("click", function () {
+      try {
+        window.localStorage.removeItem(recentPagesKey);
+      } catch (_) {}
+      renderRecentPages();
+    });
+    section.appendChild(clear);
+  }
+
+  function initializeRecentPages() {
+    var pageId = currentPageId();
+    if (pageId === null) return;
+    if (pageId === "start") {
+      renderRecentPages();
+      return;
+    }
+
+    var pages = readRecentPages().filter(function (page) { return page.id !== pageId; });
+    pages.unshift({ id: pageId, title: pageTitle(pageId) });
+    try {
+      window.localStorage.setItem(recentPagesKey, JSON.stringify(pages.slice(0, maxRecentPages)));
+    } catch (_) {}
+  }
+
+  function initializeAppUi() {
     installToolbar();
+    initializeRecentPages();
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initializeAppUi, { once: true });
+  } else {
+    initializeAppUi();
   }
 })();
-"#;
+"##;
 const JOURNAL_BUTTONS_CSS: &str = r#"
 /* ArchiveWiki journal action buttons */
 .wrap_aw-journal-actions { display: flex; flex-wrap: wrap; gap: .7rem; margin: 1.2rem 0; }
@@ -172,7 +294,7 @@ const BROKEN_JOURNAL_BUTTON_CARDS_CSS: &str = r#"
 "#;
 
 // Starter structure, installed once into the wiki; only files that don't exist yet are written.
-const STARTER_VERSION: u32 = 22;
+const STARTER_VERSION: u32 = 23;
 const STARTER: &[(&str, &str)] = &[
     ("data/pages/start.txt", include_str!("starter/start.txt")),
     ("data/pages/sidebar.txt", include_str!("starter/sidebar.txt")),
@@ -3018,6 +3140,11 @@ fn install_starter(wiki: &Path) {
         &[
             (
                 "data/pages/start.txt",
+                include_str!("starter/legacy/start_v22.txt"),
+                include_str!("starter/start.txt"),
+            ),
+            (
+                "data/pages/start.txt",
                 include_str!("starter/legacy/start_v6.txt"),
                 include_str!("starter/start.txt"),
             ),
@@ -4489,7 +4616,7 @@ fn run() -> Result<()> {
     let initialization_script = format!(
         "{}{}",
         appearance_script(&appearance_mode(&layout)),
-        NAVIGATION_TOOLBAR_SCRIPT
+        APP_UI_SCRIPT
     );
     let webview = WebViewBuilder::new()
         .with_url(start_url(&layout, &origin))

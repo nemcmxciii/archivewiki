@@ -48,8 +48,9 @@ overrides.
 - PHP runs as `php -S 127.0.0.1:47631` (falls back to a free port) with 4 workers, behind `router.php`, which blocks
   `data/ conf/ bin/ inc/ vendor/`, dotfiles, and non-loopback Host headers.
 - Same-origin pop-up windows (including DokuWiki's media manager) open inside ArchiveWiki; external links open in your default browser. Downloads go to `~/Downloads`.
+- Home lists your 8 most recently visited pages; the list is stored on this Mac and can be cleared there.
 - An always-visible in-app toolbar provides **Back**, **Forward** and **Refresh**. Menus: Edit (copy/paste), View (Home,
-  Back/Forward, Reload), File (Print, **Back Up Wiki…** → zip in
+  Back/Forward, Refresh), File (Print, **Back Up Wiki…** → zip in
   `~/Documents/ArchiveWiki Backups/`, Show Wiki Folder).
 - Logs: `php-server.log` in the Application Support folder.
 
