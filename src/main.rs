@@ -3768,6 +3768,11 @@ fn open_external(url: &str) {
     }
 }
 
+fn app_path<'a>(origin: &str, url: &'a str) -> Option<&'a str> {
+    url.strip_prefix(origin)
+        .filter(|rest| rest.is_empty() || rest.starts_with('/') || rest.starts_with('?') || rest.starts_with('#'))
+}
+
 fn unique_path(p: PathBuf) -> PathBuf {
     if !p.exists() {
         return p;
@@ -4397,13 +4402,12 @@ fn run() -> Result<()> {
         .build(&event_loop)?;
 
     let nav_origin = origin.clone();
+    let popup_origin = origin.clone();
     let webview = WebViewBuilder::new()
         .with_url(start_url(&layout, &origin))
         .with_initialization_script(appearance_script(&appearance_mode(&layout)))
         .with_navigation_handler(move |u: String| {
-            if let Some(path) = u.strip_prefix(&nav_origin).filter(|rest| {
-                rest.is_empty() || rest.starts_with('/') || rest.starts_with('?') || rest.starts_with('#')
-            }) {
+            if let Some(path) = app_path(&nav_origin, &u) {
                 if let Some(action) = journal_action(path) {
                     let _ = action_proxy.send_event(action);
                     false
@@ -4417,9 +4421,13 @@ fn run() -> Result<()> {
                 false
             }
         })
-        .with_new_window_req_handler(|u: String, _features| {
-            open_external(&u);
-            NewWindowResponse::Deny
+        .with_new_window_req_handler(move |u: String, _features| {
+            if app_path(&popup_origin, &u).is_some() {
+                NewWindowResponse::Allow
+            } else {
+                open_external(&u);
+                NewWindowResponse::Deny
+            }
         })
         .with_download_started_handler(|_url: String, dest: &mut PathBuf| {
             if let (Some(dir), Some(name)) = (dirs::download_dir(), dest.file_name().map(|n| n.to_owned())) {
@@ -4729,7 +4737,20 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use super::release_asset_sha256_from_json;
+    use super::{app_path, release_asset_sha256_from_json};
+
+    #[test]
+    fn app_navigation_accepts_only_the_exact_loopback_origin() {
+        let origin = "http://127.0.0.1:47631";
+        assert_eq!(
+            app_path(origin, "http://127.0.0.1:47631/lib/exe/mediamanager.php?ns=wiki"),
+            Some("/lib/exe/mediamanager.php?ns=wiki")
+        );
+        assert_eq!(app_path(origin, "http://127.0.0.1:47631"), Some(""));
+        assert!(app_path(origin, "http://127.0.0.1:47631.evil.test/path").is_none());
+        assert!(app_path(origin, "http://127.0.0.1:47632/path").is_none());
+        assert!(app_path(origin, "https://example.com/").is_none());
+    }
 
     #[test]
     fn reads_expected_digest_for_named_release_asset() {

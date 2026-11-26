@@ -47,7 +47,7 @@ overrides.
 - Upgrades (new bundled DokuWiki version) overwrite program files but never existing files in `data/`.
 - PHP runs as `php -S 127.0.0.1:47631` (falls back to a free port) with 4 workers, behind `router.php`, which blocks
   `data/ conf/ bin/ inc/ vendor/`, dotfiles, and non-loopback Host headers.
-- External links open in your default browser; downloads go to `~/Downloads`.
+- Same-origin pop-up windows (including DokuWiki's media manager) open inside ArchiveWiki; external links open in your default browser. Downloads go to `~/Downloads`.
 - Menus: Edit (copy/paste), View (Home, Back/Forward, Reload), File (Print, **Back Up Wiki…** → zip in
   `~/Documents/ArchiveWiki Backups/`, Show Wiki Folder).
 - Logs: `php-server.log` in the Application Support folder.
