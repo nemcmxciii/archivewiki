@@ -1,13 +1,13 @@
 ====== ArchiveWiki ======
 
-Your private archive, stored on this Mac.
+Your private archive is stored on this Mac. Keep notes, family research, records, and references in one place.
 
-**Back it up regularly.** Use **File → Back Up Wiki…** for a backup, or **File → Create Archive Snapshot…** to create a snapshot with file checksums. Keep a copy somewhere separate from this Mac.
+===== Getting started =====
 
-===== Capture =====
-
-  * **File → New Note** (⇧⌘N) opens a timestamped note in the Journal.
-  * **File → Today's Journal Entry** (⇧⌘J) opens today's journal page.
+  * **Write a note:** Choose **File → New Note**. ArchiveWiki starts a dated entry in your Journal.
+  * **Create a page:** Enter its title in **Find or add a page** below. No special formatting is needed for a basic page.
+  * **Organize by topic:** Open Journal, Genealogy, Portfolio, or Reference below and follow the instructions there.
+  * **Find it later:** Choose **View → Search Archive** (⌘K), or open a page under **Recent pages** below.
 
 ===== Browse your archive =====
 
@@ -23,3 +23,7 @@ Recently opened pages appear here. This list is stored only on this Mac.
 ===== Find or add a page =====
 
 Use **View → Search Archive** (⌘K) to find existing pages. For a page in a specific section, create a link to it (for example ''%%[[genealogy:jane_doe]]%%''), then click the link and choose **Create this page**.
+
+===== Back up your archive =====
+
+Use **File → Back Up Wiki…** for a backup, or **File → Create Archive Snapshot…** to create a snapshot with file checksums. Keep a copy somewhere separate from this Mac.
