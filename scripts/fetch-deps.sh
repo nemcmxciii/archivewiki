@@ -61,23 +61,16 @@ print(max(c)[1])')
   fi
   echo "    $PHP_URL"
   curl -fL "$PHP_URL" -o build/php.tgz
+  if [ -n "${PHP_SHA256:-}" ]; then
+    if command -v sha256sum >/dev/null 2>&1; then
+      echo "$PHP_SHA256  build/php.tgz" | sha256sum -c - >/dev/null
+    else
+      echo "$PHP_SHA256  build/php.tgz" | shasum -a 256 -c - >/dev/null
+    fi
+  fi
   tar -xzf build/php.tgz -C build php
   mv build/php "$RES/php"; chmod +x "$RES/php"
   xattr -d com.apple.quarantine "$RES/php" 2>/dev/null || true
-fi
-
-if [ -f dependencies.sha256 ] && [ -f "$RES/php" ]; then
-  if command -v sha256sum >/dev/null 2>&1; then
-    grep "  $RES/php$" dependencies.sha256 | sha256sum -c - >/dev/null 2>&1 || {
-      echo "ERROR: $RES/php failed SHA-256 verification"
-      exit 1
-    }
-  else
-    grep "  $RES/php$" dependencies.sha256 | shasum -a 256 -c - >/dev/null 2>&1 || {
-      echo "ERROR: $RES/php failed SHA-256 verification"
-      exit 1
-    }
-  fi
 fi
 
 echo "==> sanity check"

@@ -29,9 +29,10 @@ Dev run: `./scripts/fetch-deps.sh && cargo run --locked`.
 
 ## Dependency integrity
 
-The vendored DokuWiki archive and bundled PHP binary have expected SHA-256 values in
-`dependencies.sha256`. `scripts/fetch-deps.sh` verifies both before building. Runtime
-DokuWiki and PHP updates may additionally be verified by setting
+The vendored DokuWiki archive has an expected SHA-256 value in `dependencies.sha256`.
+`scripts/fetch-deps.sh` verifies it before building. PHP downloads can be verified by
+setting `PHP_SHA256` to the SHA-256 of `php.tgz`. Runtime DokuWiki and PHP updates may
+also be verified by setting
 `ARCHIVEWIKI_DOKUWIKI_SHA256` or `ARCHIVEWIKI_PHP_SHA256` to the exact 64-character
 SHA-256 of the downloaded archive. A mismatch stops the update before extraction or
 installation.
