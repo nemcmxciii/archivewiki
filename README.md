@@ -1,8 +1,31 @@
-# ArchiveWiki (Rust, macOS)
+# ArchiveWiki
 
-A native shell around DokuWiki: a small Rust binary (tao + wry/WKWebView) that launches a
-**bundled static PHP** on a loopback port, serves DokuWiki from it, and shows it in a native window.
-No Electron, no Node, no system PHP, no network needed at runtime.
+ArchiveWiki is a native macOS app for running one or more independent DokuWiki sites locally. It bundles DokuWiki and a
+static PHP runtime, so you don't need to install PHP, a database server, Electron, or Node. Reading and editing your local
+wiki works offline; online updates, extension downloads, and email delivery depend on internet/network access.
+
+**Requirements:** Apple silicon (arm64) and macOS 12 or later.
+
+## Contents
+
+- [Install and build](#easiest-double-click)
+- [Dependency integrity](#dependency-integrity)
+- [How it works](#how-it-works)
+- [Access and passwords](#access-and-passwords)
+- [Genealogy](#genealogy)
+- [Bundled plugins](#bundled-plugins)
+- [Backups](#backups)
+- [Snapshots](#snapshots-integrity-checking)
+- [App lock](#app-lock-optional)
+- [Local security](#private-local-address)
+- [Starter content](#starter-structure)
+- [Search](#search)
+- [Quick capture](#quick-capture)
+- [Theme](#theme-and-dark-mode)
+- [Branding](#branding)
+- [Updates](#updates)
+- [Development and validation](#development-and-validation)
+- [Notes](#notes)
 
 ## Easiest: double-click
 Double-click **Build ArchiveWiki.command**. It checks for Apple's command line tools and Rust (offering to install Rust),
@@ -11,8 +34,9 @@ builds `dist/ArchiveWiki.app` + `dist/ArchiveWiki.dmg`, and offers to copy the a
 
 ## Ready-made .dmg without building locally
 Push this folder to a GitHub repo; `.github/workflows/build.yml` builds the .dmg on an Apple-silicon runner
-(Actions → Build ArchiveWiki → Run workflow → download the artifact). Apps built this way are downloaded, so macOS
-will quarantine them: right-click → Open the first time, or run `xattr -dr com.apple.quarantine /Applications/ArchiveWiki.app`.
+(Actions → Build ArchiveWiki → Run workflow → download the artifact). Open the downloaded .dmg and drag ArchiveWiki.app to
+Applications. Apps built this way are downloaded, so macOS will quarantine them: right-click → Open the first time, or run
+`xattr -dr com.apple.quarantine /Applications/ArchiveWiki.app`.
 Removing that prompt entirely needs an Apple Developer ID certificate and notarization (a paid Apple developer account).
 
 ## Build manually (on the Mac)
@@ -23,8 +47,9 @@ curl https://sh.rustup.rs -sSf | sh                      # once, if Rust isn't i
 open "dist/ArchiveWiki.app"
 ```
 Optional: put a 1024×1024 `assets/icon.png` in place before bundling for an app icon.
-DokuWiki comes from `vendor/dokuwiki.tar` (release "Mort" 2026-07-14c, requires PHP 8.2+). To use a different
-release, replace that tar (top folder `dokuwiki/`) and delete `resources/dokuwiki`; with no tar present the script downloads stable.
+DokuWiki comes from `vendor/dokuwiki.tar` (release "Mort" 2026-07-14c, requires PHP 8.2+). To use a different release,
+update the pinned version and checksum, replace that tar (top folder `dokuwiki/`), and delete `resources/dokuwiki`.
+If the tar is absent, the script downloads the release pinned in `dependencies.lock`.
 Dev run: `./scripts/fetch-deps.sh && cargo run --locked`.
 
 ## Dependency integrity
@@ -42,8 +67,10 @@ overrides.
 
 ## How it works
 - `Contents/Resources/{php,dokuwiki}` ship inside the .app (pristine, read-only).
-- At launch, ArchiveWiki immediately shows an in-app welcome screen with **Log in to an existing wiki**, **Create a new wiki**, **Import a backup as a new wiki**, and **Continue with the last wiki**. Existing wikis here means local ArchiveWiki profiles on this Mac; connecting to a hosted/remote DokuWiki is not supported. The login option opens DokuWiki's login page for the selected profile. New wikis open DokuWiki's setup wizard to create an administrator login and choose who can view or edit pages. Setup is local; after it, Home offers simple starting steps. ArchiveWiki then removes `install.php` and adds offline defaults (no DokuWiki update check, plain `doku.php?id=` URLs) once. **Your pages/media live in `wiki/data/`.**
-- **File → Manage Wikis** lets you create, import, switch, and rename wikis, or delete an inactive custom wiki. Deletion permanently removes that wiki's pages and settings, but leaves its existing backup archives in Documents; the built-in Default Wiki is protected, and you must switch away from a wiki before deleting it. Renaming also updates the wiki's backup folder. Only one wiki is open at a time; switching reopens the app, and each wiki has separate DokuWiki login sessions and recent pages. The existing wiki stays at `Application Support/ArchiveWiki/wiki/`; additional wikis live in `Application Support/ArchiveWiki/wikis/`.
+- ArchiveWiki prepares the local PHP and DokuWiki files before showing its welcome screen, so first launch or an update may take a little time. The screen offers **Log in to an existing wiki**, **Create a new wiki**, **Import a backup as a new wiki**, **Continue with the last wiki**, and **Quit**. "Existing wiki" means a local ArchiveWiki profile on this Mac; connecting to a hosted DokuWiki is not supported.
+- The first setup opens DokuWiki's wizard. It creates an administrator account and lets you choose who can read and edit. After setup, ArchiveWiki removes `install.php` and applies offline-friendly defaults (no DokuWiki update check, plain `doku.php?id=` URLs). Home offers simple starting steps. **Wiki pages and media live in each profile's `wiki/data/` folder.**
+- **File → Manage Wikis** lets you create, import, switch, and rename wikis, or delete an inactive custom wiki. Deletion permanently removes that wiki's pages and settings, but keeps its existing backup archives in Documents. The built-in Default Wiki is protected, and you must switch away from a wiki before deleting it. Renaming also updates its backup folder. Only one wiki is open at a time; switching reopens the app, and each wiki has separate DokuWiki login sessions and recent pages.
+- The original wiki remains at `~/Library/Application Support/ArchiveWiki/wiki/`; additional profile data is stored under `~/Library/Application Support/ArchiveWiki/wikis/`. App-wide preferences and the PHP runtime are shared.
 - Upgrades (new bundled DokuWiki version) overwrite program files but never existing files in `data/`.
 - PHP runs as `php -S 127.0.0.1:47631` (falls back to a free port) with 4 workers, behind `router.php`, which blocks
   `data/ conf/ bin/ inc/ vendor/`, dotfiles, and non-loopback Host headers. While ArchiveWiki is running, its
@@ -55,6 +82,21 @@ overrides.
 - An always-visible in-app toolbar provides **Back**, **Forward** and **Refresh**. Menus: Edit (copy/paste), View (Home,
   Back/Forward, Refresh), File (Manage Wikis, Print, **Back Up & Restore**, Show Wiki Folder).
 - Logs: `php-server.log` in the Application Support folder.
+
+## Access and passwords
+
+DokuWiki requires an administrator account during setup, even if ordinary reading does not require a password. Its setup
+wizard offers three access policies:
+
+- **Open Wiki:** anyone using ArchiveWiki on this Mac can read, edit, and upload without signing in.
+- **Public Wiki:** anyone can read; registered users must sign in to edit or upload. This is the recommended option for
+  password-free reading with protected editing.
+- **Closed Wiki:** only registered users can read, edit, and upload.
+
+Open Wiki also permits anonymous edits and uploads; use it only if that is intentional.
+These policies control access inside DokuWiki; ArchiveWiki still listens only on this Mac, not on the local network or
+the public internet. Password-reset email links open in the default browser only while ArchiveWiki is running. Email
+delivery itself depends on the wiki's mail configuration.
 
 ## Genealogy
 The **ArchiveWiki Genealogy** plugin (`vendor/plugins/awgenealogy`, copied into your wiki like the other bundled plugins) adds:
@@ -128,9 +170,10 @@ tamper-evidence, keep a copy of the zip's `.sha256` file (or its one-line hash) 
 or another drive. Snapshots are plain, unencrypted zips.
 
 ## Private local address
-The wiki server only listens on 127.0.0.1, and each launch generates a random secret. The app window presents it once, receives
-a session cookie, and every other request without that cookie (another app, a browser tab, a web page) gets "Forbidden".
-This is a guard against other software on your Mac reaching the wiki, not against someone who has full access to your account.
+The wiki server only listens on 127.0.0.1, and each launch generates a random secret. The app window presents it once and
+receives a session cookie; other requests without that cookie get "Forbidden", except for the narrowly scoped password-reset
+flow described above. This is a guard against other software on your Mac reaching the wiki, not against someone who has full
+access to your account.
 
 ## Starter structure
 On first run (or the first launch after updating to this version) ArchiveWiki adds, only where nothing exists yet: a start page and
@@ -182,17 +225,36 @@ The app icon comes from `assets/icon.png`; the wiki branding files are in `asset
   compatibility isn't put at risk. A running copy lives in `Application Support/ArchiveWiki/runtime/php`; the signed .app is never modified.
   The new build must run, report the expected version and include every extension the current build has. After swapping it in, ArchiveWiki
   restarts the server and confirms DokuWiki answers; if not, it switches back to the previous PHP (`php.prev`) automatically.
-  Moving to a new PHP *line* (e.g. 8.3 → 8.4) is deliberately manual: rebuild with `PHP_MINOR=8.4 ./scripts/bundle.sh`.
+  Moving to a new PHP *line* (e.g. 8.3 → 8.4) is deliberately manual: publish that PHP line with the **Build PHP** workflow,
+  update the pinned version and SHA-256 in `dependencies.lock`, then rebuild the app.
 - Only one update is applied at a time: if both are available, DokuWiki goes first and PHP is offered on the next check.
 - **ArchiveWiki → Check for Updates…** runs a check on demand; **Check for Updates Automatically** turns the launch check off/on.
 - Updates live in Application Support, so they persist; a rebuilt app with an older bundled DokuWiki or PHP will not downgrade them.
 - Installed plugins/templates are kept, but after a big release check them in Admin → Extension Manager for compatibility.
-- Downloads are protected by HTTPS only (neither download site is known to publish checksums for these builds), plus the sanity checks above.
+- DokuWiki and PHP update archives are checked against the SHA-256 digest published in their GitHub release metadata before extraction,
+  then checked for expected versions and runtime requirements. Downloads also use HTTPS.
+
+## Development and validation
+
+From the repository root on a supported Mac:
+
+```bash
+bash scripts/fetch-deps.sh
+cargo test --locked
+cargo clippy --locked --all-targets -- -D warnings
+bash scripts/test-router.sh
+resources/php -l src/router.php
+bash scripts/bundle.sh
+```
+
+`scripts/test-router.sh` exercises the loopback router's normal session protection and password-reset exception. The build workflow runs
+this integration check after fetching PHP. The bundled router is compiled into the app, so source changes do not affect an already-installed
+copy: rebuild the `.app`/`.dmg` and replace the old app to use them.
 
 ## Notes
 - Plugins/templates can be installed from the DokuWiki admin UI or by dropping them in `wiki/lib/plugins/`.
-- To enable logins/ACLs later: set `$conf['useacl']=1`, copy `conf/users.auth.php.dist` and `conf/acl.auth.php.dist`
-  to the non-`.dist` names, and add a user.
+- For an existing open wiki, enable DokuWiki ACLs in its configuration and set up user and ACL files (`conf/users.auth.php`
+  and `conf/acl.auth.php`) before restricting access. New wikis can select their access policy in the setup wizard.
 - PHP: a static build made by the **Build PHP** workflow (static-php-cli, 8.3 line, includes `pdo_sqlite` for the sqlite/struct plugins).
   The build script downloads the pinned version from this repo's Releases. Run the workflow to publish a newer build, then update
   `dependencies.lock` to select it. The repo must be public for the app and build script to download the release.

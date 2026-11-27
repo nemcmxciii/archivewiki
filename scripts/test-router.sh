@@ -29,7 +29,7 @@ PORT="$(python3 -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0))
 BASE_URL="http://127.0.0.1:$PORT"
 RESET_TOKEN="0123456789abcdef0123456789abcdef"
 LAUNCH_TOKEN="test-launch-secret"
-ARCHIVEWIKI_TOKEN="$LAUNCH_TOKEN" PHP_CLI_SERVER_WORKERS=1 "$PHP" -n -S "127.0.0.1:$PORT" \
+ARCHIVEWIKI_TOKEN="$LAUNCH_TOKEN" "$PHP" -n -S "127.0.0.1:$PORT" \
   -t "$TEMP_DIR/wiki" "$ROOT/src/router.php" > "$TEMP_DIR/server.log" 2>&1 &
 SERVER_PID=$!
 
