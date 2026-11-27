@@ -88,7 +88,7 @@ Admin → Extension Manager after the first launch.
 
 ## Backups
 - For everyday use, open **File → Back Up & Restore**:
-  - **Create Backup…** saves a copy of your pages, media, and settings as a zip in `~/Documents/ArchiveWiki Backups/`.
+  - **Back Up Now** saves a copy of your pages, media, and settings as a zip in `~/Documents/ArchiveWiki Backups/`.
   - **Back Up Automatically (Daily)** is on by default. It runs while the app is open and keeps the newest 10 automatic backups.
   - **Restore from Backup…** lets you choose a backup zip. It checks the file, rejects unsafe paths and
   symbolic links, asks you to confirm, saves your current wiki as a `pre-restore` backup, stages the archive, then replaces `data/`

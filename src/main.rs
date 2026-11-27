@@ -298,8 +298,11 @@ const APP_UI_SCRIPT: &str = r##"
           body: new URLSearchParams({ title: input.value.trim() })
         });
         var result = await response.json();
-        if (!response.ok) throw new Error(result.error || "The page name could not be used.");
+        if (!response.ok) {
+          throw new Error(typeof result.error === "string" ? result.error : "The page name could not be used.");
+        }
         if (typeof result.id !== "string" || !result.id) throw new Error("Enter a title with letters or numbers.");
+        if (typeof result.exists !== "boolean") throw new Error("The page could not be checked. Please try again.");
 
         var query = new URLSearchParams({ id: result.id });
         if (!result.exists) query.set("do", "edit");
@@ -4105,7 +4108,7 @@ fn backup(l: &Layout, prefix: &str) -> Result<PathBuf> {
     fs::create_dir_all(&dir)?;
     let ts = Command::new("date").arg("+%Y%m%d-%H%M%S").output()?;
     let ts = String::from_utf8_lossy(&ts.stdout).trim().to_string();
-    let out = dir.join(format!("{prefix}-{ts}.zip"));
+    let out = unique_path(dir.join(format!("{prefix}-{ts}.zip")));
     let st = Command::new("/usr/bin/zip")
         .arg("-qr")
         .arg(&out)
@@ -4415,8 +4418,9 @@ fn create_snapshot(l: &Layout) -> Result<(PathBuf, usize)> {
             count
         );
         fs::write(stage.join("SNAPSHOT.txt"), about)?;
-        let name = format!("ArchiveWiki-snapshot-{}.zip", stamp("+%Y%m%d-%H%M%S"));
-        let out = dir.join(&name);
+        let requested_name = format!("ArchiveWiki-snapshot-{}.zip", stamp("+%Y%m%d-%H%M%S"));
+        let out = unique_path(dir.join(&requested_name));
+        let name = out.file_name().ok_or_else(|| anyhow!("Snapshot path has no file name"))?.to_string_lossy().into_owned();
         let st = Command::new("/usr/bin/zip")
             .arg("-qr")
             .arg(&out)
@@ -4594,7 +4598,7 @@ fn build_menu(
     ])?;
     let backups = Submenu::new("Back Up & Restore", true);
     backups.append_items(&[
-        &MenuItem::with_id("backup", "Create Backup…", true, acc(Modifiers::META | Modifiers::SHIFT, Code::KeyB)),
+        &MenuItem::with_id("backup", "Back Up Now", true, acc(Modifiers::META | Modifiers::SHIFT, Code::KeyB)),
         &backup_item,
         &MenuItem::with_id("restore", "Restore from Backup…", true, None),
         &PredefinedMenuItem::separator(),
@@ -5055,7 +5059,22 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use super::{app_path, release_asset_sha256_from_json};
+    use super::{app_path, release_asset_sha256_from_json, unique_path};
+
+    #[test]
+    fn unique_path_keeps_existing_backup_intact() {
+        let dir = std::env::temp_dir().join(format!("archivewiki-unique-path-{}", super::random_token()));
+        std::fs::create_dir(&dir).unwrap();
+        let original = dir.join("backup.zip");
+        std::fs::write(&original, b"existing backup").unwrap();
+
+        let next = unique_path(original.clone());
+        assert_eq!(next.file_name().unwrap().to_string_lossy(), "backup (1).zip");
+        assert_eq!(std::fs::read(&original).unwrap(), b"existing backup");
+        assert!(!next.exists());
+
+        std::fs::remove_dir_all(dir).unwrap();
+    }
 
     #[test]
     fn app_navigation_accepts_only_the_exact_loopback_origin() {

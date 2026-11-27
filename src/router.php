@@ -46,7 +46,14 @@ if ($path === '/_archivewiki/page-check') {
     }
 
     $title = $_POST['title'] ?? null;
-    if (!is_string($title) || trim($title) === '' || strlen($title) > 512) {
+    if (!is_string($title) || trim($title) === '' || strlen($title) > 480) {
+        http_response_code(422);
+        echo json_encode(['error' => 'Enter a page title up to 120 characters long.']);
+        return true;
+    }
+
+    $titleLength = preg_match_all('/./us', $title);
+    if ($titleLength === false || $titleLength > 120) {
         http_response_code(422);
         echo json_encode(['error' => 'Enter a page title up to 120 characters long.']);
         return true;
