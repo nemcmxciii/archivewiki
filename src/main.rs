@@ -18,6 +18,7 @@ use std::{
     os::unix::{fs::PermissionsExt, process::CommandExt},
     path::{Path, PathBuf},
     process::{Child, Command, Stdio},
+    sync::Mutex,
     thread,
     time::{Duration, Instant, SystemTime},
 };
@@ -33,6 +34,8 @@ use global_hotkey::{
     GlobalHotKeyEvent, GlobalHotKeyManager, HotKeyState,
 };
 use std::sync::Arc;
+
+static WIKI_IO_LOCK: Mutex<()> = Mutex::new(());
 use wry::WebViewBuilder;
 use wry::NewWindowResponse;
 
@@ -3033,6 +3036,7 @@ struct Layout {
     bundle_plugins: PathBuf, // curated DokuWiki plugins shipped inside the .app
     auth_helper: PathBuf, // locally prepared copy that actually runs
     updates: PathBuf,
+    php_updates: PathBuf,
     rollback: PathBuf,
     support: PathBuf,
     profile_root: PathBuf,
@@ -3064,6 +3068,7 @@ impl Layout {
             bundle_plugins: res.join("plugins"),
             auth_helper: support.join("runtime").join("auth-helper"),
             updates: profile_root.join("updates"),
+            php_updates: support.join("php-updates"),
             rollback: profile_root.join("wiki-rollback"),
             support,
             profile_root,
@@ -3997,9 +4002,9 @@ fn php_modules(bin: &Path) -> Option<Vec<String>> {
 
 /// Download + unpack + verify a new PHP build. Touches nothing in the live install.
 fn prepare_php_update(l: &Layout, new_ver: &str) -> Result<PathBuf> {
-    let _ = fs::remove_dir_all(&l.updates);
-    fs::create_dir_all(&l.updates)?;
-    let tgz = l.updates.join("php.tgz");
+    let _ = fs::remove_dir_all(&l.php_updates);
+    fs::create_dir_all(&l.php_updates)?;
+    let tgz = l.php_updates.join("php.tgz");
     curl_file(&php_download_url(new_ver), &tgz)?;
     let digest = match std::env::var("ARCHIVEWIKI_PHP_SHA256") {
         Ok(expected) => expected,
@@ -4011,7 +4016,7 @@ fn prepare_php_update(l: &Layout, new_ver: &str) -> Result<PathBuf> {
     };
     snapshot::verify_sha256(&tgz, &digest)
         .context("the downloaded PHP package failed integrity verification")?;
-    let stage = l.updates.join("php-stage");
+    let stage = l.php_updates.join("php-stage");
     fs::create_dir_all(&stage)?;
     let st = Command::new("/usr/bin/tar").arg("-xzf").arg(&tgz).arg("-C").arg(&stage).arg("php").status()?;
     let bin = stage.join("php");
@@ -4047,7 +4052,7 @@ fn swap_php(l: &Layout, staged: &Path) -> Result<()> {
         let _ = fs::rename(&prev, &l.php);
         return Err(e.into());
     }
-    let _ = fs::remove_dir_all(&l.updates);
+    let _ = fs::remove_dir_all(&l.php_updates);
     Ok(())
 }
 
@@ -4309,6 +4314,11 @@ fn backup_dir(l: &Layout) -> Result<PathBuf> {
 }
 
 fn backup(l: &Layout, prefix: &str) -> Result<PathBuf> {
+    let _guard = WIKI_IO_LOCK.lock().map_err(|_| anyhow!("Wiki file operation lock is poisoned"))?;
+    backup_unlocked(l, prefix)
+}
+
+fn backup_unlocked(l: &Layout, prefix: &str) -> Result<PathBuf> {
     let dir = backup_dir(l)?;
     fs::create_dir_all(&dir)?;
     let ts = Command::new("date").arg("+%Y%m%d-%H%M%S").output()?;
@@ -4406,6 +4416,7 @@ fn restore_flow(l: &Layout, proxy: &EventLoopProxy<UserEvent>) -> Result<()> {
 
 /// Main thread, server stopped. Stages and validates the archive before replacing live files.
 fn restore_backup(l: &Layout, zip: &Path, save_current: bool) -> Result<()> {
+    let _guard = WIKI_IO_LOCK.lock().map_err(|_| anyhow!("Wiki file operation lock is poisoned"))?;
     let entries = inspect_archive(zip)?;
     let stage = l.profile_root.join("restore-stage");
     let result = (|| -> Result<()> {
@@ -4418,7 +4429,7 @@ fn restore_backup(l: &Layout, zip: &Path, save_current: bool) -> Result<()> {
         let _ = fs::remove_file(stage.join(snapshot::MANIFEST));
         let _ = fs::remove_file(stage.join("SNAPSHOT.txt"));
         if save_current {
-            backup(l, "pre-restore").context("could not save your current wiki first")?;
+            backup_unlocked(l, "pre-restore").context("could not save your current wiki first")?;
         }
         install_staged_restore(&l.wiki, &stage, &l.profile_root.join("restore-previous"))?;
         let data = l.wiki.join("data");
@@ -4612,6 +4623,7 @@ fn snapshot_dir(l: &Layout) -> Result<PathBuf> {
 /// A snapshot is a restorable zip of data/ and conf/ plus MANIFEST.sha256 (a SHA-256 for every file) and
 /// SNAPSHOT.txt, with the zip's own checksum saved beside it. Files are cloned first so the manifest and the zip agree.
 fn create_snapshot(l: &Layout) -> Result<(PathBuf, usize)> {
+    let _guard = WIKI_IO_LOCK.lock().map_err(|_| anyhow!("Wiki file operation lock is poisoned"))?;
     let dir = snapshot_dir(l)?;
     fs::create_dir_all(&dir)?;
     let stage = l.profile_root.join("snapshot-staging");
