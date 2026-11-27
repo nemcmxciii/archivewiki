@@ -3835,6 +3835,16 @@ const AWGENEALOGY_V2_HASHES: &[(&str, &str)] = &[
     ("syntax/pedigree.php", "3bc5624907770ac3b080655c9d2fcf79d2d05bfad85e645ed96ead9b99da0705"),
     ("syntax/person.php", "f3d1dc8286a2c65d71ef1e252c36ff277960446216bcf95bb93f583a7483129c"),
 ];
+const AWGENEALOGY_PRE_FAMILY_GROUP_HASHES: &[(&str, &str)] = &[
+    ("action.php", "22035636a43cf5a585a64031c63dff2b941777b796207d992d82c8dae75ff29b"),
+    ("helper.php", "ac6238f91dc6777119dcc8be1fc7f63c57bcd93d46847a5ff345b10cfe53b8cd"),
+    ("plugin.info.txt", "c84c6073d34e10e05988d75f0df809e34b0df6f832d91b999d24eddfcc0fca2e"),
+    ("print.css", "aeae3e2a0710ce60cb2afb8183d62c88555b34adb32ef49e0c0ce6741393d37d"),
+    ("script.js", "42e6d2294ae19455285ca49ee619a62fc8b838079a7430d6ec2353c5c2bf3a69"),
+    ("style.css", "5a05fce1e7b58c7ad8599f613819f4a25a33244ff983e88fd704f7e5d7b965af"),
+    ("syntax/pedigree.php", "2f3a7ca2c5ea4c00c65929b31c28a41002981ce2d82967419543679ec2cf5aa6"),
+    ("syntax/person.php", "f3d1dc8286a2c65d71ef1e252c36ff277960446216bcf95bb93f583a7483129c"),
+];
 
 fn plugin_matches_hash_snapshot(dst: &Path, actual: &[PathBuf], snapshot: &[(&str, &str)]) -> bool {
     let mut expected: Vec<PathBuf> = snapshot.iter().map(|(path, _)| PathBuf::from(*path)).collect();
@@ -3883,7 +3893,9 @@ fn upgrade_unmodified_awgenealogy(src: &Path, dst: &Path, target_root: &Path) {
             }
         }
     }
-    if !matches_v1 && !plugin_matches_hash_snapshot(dst, &actual, AWGENEALOGY_V2_HASHES) {
+    let matches_known_release = plugin_matches_hash_snapshot(dst, &actual, AWGENEALOGY_V2_HASHES)
+        || plugin_matches_hash_snapshot(dst, &actual, AWGENEALOGY_PRE_FAMILY_GROUP_HASHES);
+    if !matches_v1 && !matches_known_release {
         return;
     }
 
