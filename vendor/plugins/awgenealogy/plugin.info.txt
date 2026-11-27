@@ -1,7 +1,7 @@
 base   awgenealogy
 author ArchiveWiki
 email  archivewiki@localhost
-date   2026-11-21
+date   2026-11-26
 name   ArchiveWiki Genealogy
-desc   Person pages, searchable directory and guided editable ancestor chart
+desc   Person pages, family connections, searchable directory and editable ancestor chart
 url    https://github.com/nemcmxciii/archivewiki

@@ -226,6 +226,92 @@ class helper_plugin_awgenealogy extends Plugin
         return $families;
     }
 
+    private function familyPeopleLinks(array $ids)
+    {
+        $links = [];
+        foreach (array_unique($ids) as $id) {
+            $person = $this->getPerson($id);
+            if ($person && !empty($person['private'])) {
+                $links[] = 'Private';
+            } elseif (!$person) {
+                $links[] = hsc($this->titleFromId($id)) . ' (page not found)';
+            } else {
+                $name = $person['fields']['name'] ?? $this->titleFromId($id);
+                $links[] = '<a href="' . hsc(wl($id)) . '">' . hsc($name) . '</a>';
+            }
+        }
+        return implode(', ', $links);
+    }
+
+    /** Render family-group connections for a person without requiring edits to the person page. */
+    public function familyConnectionsHtml($personId)
+    {
+        $personId = cleanID($personId);
+        $families = [];
+        foreach ($this->allFamilies() as $familyId => $title) {
+            $block = $this->findFamilyBlock(rawWiki($familyId));
+            if (!$block) continue;
+            $fields = $block['fields'];
+            $parents = [];
+            foreach (['father', 'mother'] as $role) {
+                $id = $this->resolveRef($fields[$role] ?? '', $familyId);
+                if ($id !== '') $parents[] = $id;
+            }
+            $children = [];
+            foreach ($fields as $key => $ref) {
+                if (!preg_match('/^child_[0-9]+$/', $key)) continue;
+                $id = $this->resolveRef($ref, $familyId);
+                if ($id !== '') $children[] = $id;
+            }
+            $parents = array_values(array_unique($parents));
+            $children = array_values(array_unique($children));
+            $isParent = in_array($personId, $parents, true);
+            $isChild = in_array($personId, $children, true);
+            if (!$isParent && !$isChild) continue;
+            $families[] = [
+                'id' => $familyId,
+                'title' => $title,
+                'is_parent' => $isParent,
+                'is_child' => $isChild,
+                'other_parents' => array_values(array_diff($parents, [$personId])),
+                'parents' => $parents,
+                'children' => $children,
+                'siblings' => array_values(array_diff($children, [$personId])),
+            ];
+        }
+
+        $html = '<section class="awg-family-connections"><h3>Family connections</h3>';
+        if (!$families) {
+            $html .= '<p>No family groups are linked to this person yet. <a href="' .
+                hsc(wl('genealogy:families:start')) . '">Create a family group</a> to add parents, partners, or children.</p></section>';
+            return $html;
+        }
+
+        $html .= '<ul class="awg-family-connections-list">';
+        foreach ($families as $family) {
+            $html .= '<li><a class="awg-family-title" href="' . hsc(wl($family['id'])) . '">' .
+                hsc($family['title']) . '</a><p class="awg-family-role">';
+            $roles = [];
+            if ($family['is_parent']) $roles[] = 'Parent or partner';
+            if ($family['is_child']) $roles[] = 'Child';
+            $html .= hsc(implode(' · ', $roles)) . '</p><dl>';
+            if ($family['is_parent'] && $family['other_parents']) {
+                $html .= '<dt>Other parent or partner</dt><dd>' . $this->familyPeopleLinks($family['other_parents']) . '</dd>';
+            }
+            if ($family['is_parent'] && $family['children']) {
+                $html .= '<dt>Children</dt><dd>' . $this->familyPeopleLinks($family['children']) . '</dd>';
+            }
+            if ($family['is_child'] && $family['parents']) {
+                $html .= '<dt>Parents</dt><dd>' . $this->familyPeopleLinks($family['parents']) . '</dd>';
+            }
+            if ($family['is_child'] && $family['siblings']) {
+                $html .= '<dt>Siblings</dt><dd>' . $this->familyPeopleLinks($family['siblings']) . '</dd>';
+            }
+            $html .= '</dl></li>';
+        }
+        return $html . '</ul></section>';
+    }
+
     private function familyInput($name, $label, $value = '', $placeholder = '')
     {
         return '<label class="awg-family-field"><span>' . hsc($label) . '</span><input type="text" name="' .

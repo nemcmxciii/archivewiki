@@ -3822,6 +3822,32 @@ const AWGENEALOGY_V1_FILES: &[(&str, &str)] = &[
     ("syntax/pedigree.php", include_str!("starter/legacy/awgenealogy_v1/syntax/pedigree.php")),
     ("syntax/person.php", include_str!("starter/legacy/awgenealogy_v1/syntax/person.php")),
 ];
+const AWGENEALOGY_V2_HASHES: &[(&str, &str)] = &[
+    ("action.php", "7e7e5068db229baa78c04357c5c725f112726fc909303a1fc2d7bc9a8f809e7f"),
+    ("helper.php", "0e54b8835fdb672877a8a8f3c2cf3fe811623439373ac06fb20efd6bbe36ed07"),
+    ("plugin.info.txt", "0dd36ea60f1bf661b02a3eae079c49f21513d79afa4b7c8314165190e7cd1bc2"),
+    ("print.css", "5a93c3b14d911850c3e299b241310f644e7684dab1cbfa60f6af8b239013a471"),
+    ("script.js", "b9e548ff885eb081945b3b0f2fd75572bae7d9fa27576ded6f412f77983d753a"),
+    ("style.css", "88a16bed4222fce19888adc1eaef9250a5323b92f626aa4c4e0f164f2c22f779"),
+    ("syntax/directory.php", "2a4d51bbbc257f9fd590408ffb266a62e80c6a41cdfabcee9df6f8126f630ed9"),
+    ("syntax/familygroup.php", "2b3f3c283030574f90461df4bef0eb0206721b9dfa0545d3b827a23c165793c6"),
+    ("syntax/newperson.php", "993b11a382f96057887e3803ea6bba03395b6cc17cb8599342ef343b4e93d442"),
+    ("syntax/pedigree.php", "3bc5624907770ac3b080655c9d2fcf79d2d05bfad85e645ed96ead9b99da0705"),
+    ("syntax/person.php", "f3d1dc8286a2c65d71ef1e252c36ff277960446216bcf95bb93f583a7483129c"),
+];
+
+fn plugin_matches_hash_snapshot(dst: &Path, actual: &[PathBuf], snapshot: &[(&str, &str)]) -> bool {
+    let mut expected: Vec<PathBuf> = snapshot.iter().map(|(path, _)| PathBuf::from(*path)).collect();
+    expected.sort();
+    if actual != expected.as_slice() {
+        return false;
+    }
+    snapshot.iter().all(|(path, hash)| {
+        snapshot::sha256_file(&dst.join(path))
+            .map(|actual| actual == *hash)
+            .unwrap_or(false)
+    })
+}
 
 fn collect_plugin_files(root: &Path, dir: &Path, files: &mut Vec<PathBuf>) -> bool {
     let Ok(entries) = fs::read_dir(dir) else { return false };
@@ -3840,8 +3866,7 @@ fn collect_plugin_files(root: &Path, dir: &Path, files: &mut Vec<PathBuf>) -> bo
     true
 }
 
-/// Upgrade only the untouched first bundled version of ArchiveWiki's genealogy plugin.
-/// A plugin the user edited or installed separately is left intact.
+/// Upgrade only exact snapshots of bundled ArchiveWiki Genealogy versions; user-edited plugins are left intact.
 fn upgrade_unmodified_awgenealogy(src: &Path, dst: &Path, target_root: &Path) {
     if !dst.is_dir() { return; }
     let mut actual = Vec::new();
@@ -3849,9 +3874,17 @@ fn upgrade_unmodified_awgenealogy(src: &Path, dst: &Path, target_root: &Path) {
     actual.sort();
     let mut expected: Vec<PathBuf> = AWGENEALOGY_V1_FILES.iter().map(|(p, _)| PathBuf::from(*p)).collect();
     expected.sort();
-    if actual != expected { return; }
-    for (rel, shipped) in AWGENEALOGY_V1_FILES {
-        if fs::read_to_string(dst.join(*rel)).map(|s| s != *shipped).unwrap_or(true) { return; }
+    let mut matches_v1 = actual == expected;
+    if matches_v1 {
+        for (rel, shipped) in AWGENEALOGY_V1_FILES {
+            if fs::read_to_string(dst.join(*rel)).map(|s| s != *shipped).unwrap_or(true) {
+                matches_v1 = false;
+                break;
+            }
+        }
+    }
+    if !matches_v1 && !plugin_matches_hash_snapshot(dst, &actual, AWGENEALOGY_V2_HASHES) {
+        return;
     }
 
     let stage = target_root.join(format!(".awgenealogy-update-{}", std::process::id()));
@@ -5917,9 +5950,35 @@ fn main() {
 mod tests {
     use super::{
         active_wiki_profile, app_path, delete_wiki_profile, initial_wiki_route, profile_session_name,
-        recent_pages_storage_key, release_asset_sha256_from_json, rename_wiki_profile, startup_action,
-        unique_path, validate_wiki_name, wiki_profiles, wiki_url_with_session_token, STARTUP_HTML,
+        plugin_matches_hash_snapshot, recent_pages_storage_key, release_asset_sha256_from_json,
+        rename_wiki_profile, startup_action, unique_path, validate_wiki_name, wiki_profiles,
+        wiki_url_with_session_token, STARTUP_HTML,
     };
+
+    #[test]
+    fn genealogy_plugin_upgrade_snapshot_rejects_edits_and_extra_files() {
+        let dir = std::env::temp_dir().join(format!("archivewiki-plugin-snapshot-{}", super::random_token()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let plugin = dir.join("plugin.php");
+        std::fs::write(&plugin, "<?php echo 'bundled';").unwrap();
+        let digest = super::snapshot::sha256_file(&plugin).unwrap();
+        let snapshot = [("plugin.php", digest.as_str())];
+        let mut files = Vec::new();
+        assert!(super::collect_plugin_files(&dir, &dir, &mut files));
+        files.sort();
+        assert!(plugin_matches_hash_snapshot(&dir, &files, &snapshot));
+
+        std::fs::write(&plugin, "<?php echo 'customized';").unwrap();
+        assert!(!plugin_matches_hash_snapshot(&dir, &files, &snapshot));
+        std::fs::write(&plugin, "<?php echo 'bundled';").unwrap();
+        std::fs::write(dir.join("custom.php"), "<?php").unwrap();
+        files.clear();
+        assert!(super::collect_plugin_files(&dir, &dir, &mut files));
+        files.sort();
+        assert!(!plugin_matches_hash_snapshot(&dir, &files, &snapshot));
+
+        std::fs::remove_dir_all(dir).unwrap();
+    }
 
     #[test]
     fn unique_path_keeps_existing_backup_intact() {

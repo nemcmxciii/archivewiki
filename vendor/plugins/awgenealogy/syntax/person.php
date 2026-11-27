@@ -29,6 +29,7 @@ class syntax_plugin_awgenealogy_person extends SyntaxPlugin
     {
         if ($format !== 'xhtml') return true;
         global $ID;
+        $renderer->info['cache'] = false; // family-group changes affect this person's page
         /** @var helper_plugin_awgenealogy $h */
         $h = plugin_load('helper', 'awgenealogy');
         $f = $data;
@@ -50,7 +51,7 @@ class syntax_plugin_awgenealogy_person extends SyntaxPlugin
         }
         if (in_array(strtolower(trim($f['living'] ?? '')), ['yes', 'y', 'true', '1'], true)) $add('Status', 'Living');
         $renderer->doc .= '<div class="awg-person"><div class="awg-person-name">' . hsc($f['name'] ?? '') . '</div>' .
-            ($rows !== '' ? '<dl>' . $rows . '</dl>' : '') . '</div>';
+            ($rows !== '' ? '<dl>' . $rows . '</dl>' : '') . '</div>' . $h->familyConnectionsHtml($ID);
         return true;
     }
 }

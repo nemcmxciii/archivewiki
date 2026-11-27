@@ -102,6 +102,7 @@ delivery itself depends on the wiki's mail configuration.
 The **ArchiveWiki Genealogy** plugin (`vendor/plugins/awgenealogy`, copied into your wiki like the other bundled plugins) adds:
 - a **quick-add form** on the Genealogy start page: create a person with a name and optionally add dates and places; a searchable local directory finds people by name, dates or places;
 - **Family Group sheets**: a form for two parents or partners, marriage or partnership details, children, sources, and research notes. Names create or connect individual pages, and saved child relationships feed into the pedigree tree. Family sheets have their own searchable index;
+- **automatic family connections** on person pages: linked Family Group sheets show that person's parents or partners, children, and siblings, so relatives are easy to discover without manually maintaining a second list. People the current reader cannot access are shown as private;
 - a **person block** (`<person> ... </person>`) on each person's page: name, sex, born / birthplace, died / deathplace, `father`, `mother`
   (page names, resolved like links in the same section) and `living`. It's shown as a small card on the page;
 - a **guided ancestor form**: `{{pedigree>genealogy:jane_doe}}` (add `?4` for a different number of generations). It shows one generation at a time, keeps progress across steps, and lets you save partial work. It lists the
