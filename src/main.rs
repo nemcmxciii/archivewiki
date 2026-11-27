@@ -3710,10 +3710,18 @@ fn journal_action(url: &str) -> Option<UserEvent> {
 /// Setup wizard until DokuWiki has been configured, the wiki itself afterwards.
 fn start_url(l: &Layout, origin: &str) -> String {
     // The secret in the first URL makes the server set a session cookie for this window (see router.php).
-    if l.wiki.join("conf").join("local.php").exists() {
-        format!("{origin}/doku.php?aw={}", l.token)
-    } else {
-        format!("{origin}/install.php?aw={}", l.token)
+    format!("{origin}{}?aw={}", initial_wiki_route(l.wiki.join("conf").join("local.php").exists(), false), l.token)
+}
+
+fn login_url(l: &Layout, origin: &str) -> String {
+    format!("{origin}{}?aw={}", initial_wiki_route(l.wiki.join("conf").join("local.php").exists(), true), l.token)
+}
+
+fn initial_wiki_route(configured: bool, login: bool) -> &'static str {
+    match (configured, login) {
+        (false, _) => "/install.php",
+        (true, true) => "/doku.php?do=login",
+        (true, false) => "/doku.php",
     }
 }
 
@@ -4812,7 +4820,10 @@ fn create_wiki_flow(l: &Layout, proxy: &EventLoopProxy<UserEvent>, importing: bo
 }
 
 fn choose_wiki_profile(l: &Layout) -> Result<Option<WikiProfile>> {
-    let profiles = wiki_profiles(&l.support)?;
+    let profiles = wiki_profiles(&l.support)?
+        .into_iter()
+        .filter(|profile| profile.wiki.join("doku.php").is_file())
+        .collect::<Vec<_>>();
     if profiles.is_empty() {
         return Ok(None);
     }
@@ -4830,6 +4841,64 @@ fn choose_wiki_profile(l: &Layout) -> Result<Option<WikiProfile>> {
         .find(|profile| profile.name == chosen)
         .map(Some)
         .ok_or_else(|| anyhow!("The selected wiki could not be found in the profile list."))
+}
+
+fn choose_startup_wiki(l: &Layout) -> Result<Option<(WikiProfile, bool)>> {
+    const CONTINUE: &str = "Continue with Last Wiki";
+    const LOGIN: &str = "Log In to an Existing Wiki…";
+    const CREATE: &str = "Create a New Wiki…";
+    const IMPORT: &str = "Import a Backup as a New Wiki…";
+    const QUIT: &str = "Quit ArchiveWiki";
+
+    let profiles = wiki_profiles(&l.support)?;
+    let mut choices = Vec::new();
+    if profiles.iter().any(|profile| profile.id == l.profile_id && profile.wiki.join("doku.php").is_file()) {
+        choices.push(CONTINUE);
+    }
+    if profiles.iter().any(|profile| profile.wiki.join("doku.php").is_file()) {
+        choices.push(LOGIN);
+    }
+    choices.extend([CREATE, IMPORT, QUIT]);
+    let list = choices.iter().map(|choice| format!("\"{}\"", esc(choice))).collect::<Vec<_>>().join(", ");
+    let prompt = "Choose a wiki on this Mac to open, or create/import one.\nRemote wiki connections aren't supported yet.";
+    let default_item = if choices.contains(&CONTINUE) {
+        format!(" default items {{\"{CONTINUE}\"}}")
+    } else {
+        String::new()
+    };
+    let script = format!(
+        "choose from list {{{list}}} with prompt \"{}\"{default_item} with title \"{APP_NAME}\"",
+        esc(prompt),
+    );
+    let out = Command::new("osascript").args(["-e", &script]).output().context("could not open the startup wiki chooser")?;
+    if !out.status.success() {
+        return Ok(None);
+    }
+    let selected = String::from_utf8_lossy(&out.stdout).trim().to_owned();
+    let (profile, login) = match selected.as_str() {
+        CONTINUE => (active_wiki_profile(&l.support)?, false),
+        LOGIN => {
+            let Some(profile) = choose_wiki_profile(l)? else { return Ok(None) };
+            (profile, true)
+        }
+        CREATE | IMPORT => {
+            let importing = selected == IMPORT;
+            let Some(name) = prompt_wiki_name(importing)? else { return Ok(None) };
+            let import = if importing {
+                let Some(zip) = pick_zip("Choose an ArchiveWiki backup to import", Some(backup_root()?))? else {
+                    return Ok(None);
+                };
+                Some(zip)
+            } else {
+                None
+            };
+            (create_wiki_profile(l, &name, import.as_deref())?, importing)
+        }
+        QUIT => return Ok(None),
+        _ => bail!("The startup chooser returned an unknown option."),
+    };
+    fs::write(l.support.join("active-wiki"), &profile.id).context("could not save the selected wiki")?;
+    Ok(Some((profile, login)))
 }
 
 fn relaunch_application() -> Result<()> {
@@ -5046,7 +5115,9 @@ fn build_menu(
 // ---------------------------------------------------------------- main
 
 fn run() -> Result<()> {
-    let layout = Layout::discover()?;
+    let mut layout = Layout::discover()?;
+    let Some((profile, login)) = choose_startup_wiki(&layout)? else { return Ok(()) };
+    layout = layout.for_profile(&profile);
     kill_stale(&layout.pidfile);
     sync_php(&layout.bundle_php, &layout.php)?;
     install_auth_helper(&layout);
@@ -5110,7 +5181,7 @@ fn run() -> Result<()> {
         app_ui_script(&layout)
     );
     let webview = WebViewBuilder::new()
-        .with_url(start_url(&layout, &origin))
+        .with_url(if login { login_url(&layout, &origin) } else { start_url(&layout, &origin) })
         .with_initialization_script(&initialization_script)
         .with_navigation_handler(move |u: String| {
             if let Some(path) = app_path(&nav_origin, &u) {
@@ -5489,8 +5560,8 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::{
-        active_wiki_profile, app_path, profile_session_name, recent_pages_storage_key, release_asset_sha256_from_json, unique_path,
-        validate_wiki_name, wiki_profiles,
+        active_wiki_profile, app_path, initial_wiki_route, profile_session_name, recent_pages_storage_key,
+        release_asset_sha256_from_json, unique_path, validate_wiki_name, wiki_profiles,
     };
 
     #[test]
@@ -5561,6 +5632,14 @@ mod tests {
             recent_pages_storage_key("wiki-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
             "archivewiki.recent-pages.wiki-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         );
+    }
+
+    #[test]
+    fn startup_routes_new_wikis_to_setup_and_existing_wikis_to_the_login_page() {
+        assert_eq!(initial_wiki_route(false, false), "/install.php");
+        assert_eq!(initial_wiki_route(false, true), "/install.php");
+        assert_eq!(initial_wiki_route(true, false), "/doku.php");
+        assert_eq!(initial_wiki_route(true, true), "/doku.php?do=login");
     }
 
     #[test]
