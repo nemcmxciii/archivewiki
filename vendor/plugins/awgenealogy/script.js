@@ -279,10 +279,13 @@ jQuery(function () {
         var $save = $('<button type="button" class="button"/>').text('Save');
         var $cancel = $('<button type="button" class="button"/>').text('Cancel');
         var $sources = $('<details class="awg-fact-sources"><summary>Attach sources to dates and places (optional)</summary></details>')
-            .append($('<label/>').append($('<span/>').text('Birth date source'), $bornSource))
-            .append($('<label/>').append($('<span/>').text('Birthplace source'), $birthplaceSource))
-            .append($('<label/>').append($('<span/>').text('Death date source'), $diedSource))
-            .append($('<label/>').append($('<span/>').text('Place of death source'), $deathplaceSource));
+            .append($('<label class="awg-family-field"/>').append($('<span/>').text('Birth date source'), $bornSource))
+            .append($('<label class="awg-family-field"/>').append($('<span/>').text('Birthplace source'), $birthplaceSource))
+            .append($('<label class="awg-family-field"/>').append($('<span/>').text('Death date source'), $diedSource))
+            .append($('<label class="awg-family-field"/>').append($('<span/>').text('Place of death source'), $deathplaceSource));
+        [$bornSource, $birthplaceSource, $diedSource, $deathplaceSource].forEach(function ($source) {
+            $source.attr('maxlength', 500);
+        });
         $f.append($name, $('<div class="awg-row"/>').append($born, $bp), $('<div class="awg-row"/>').append($died, $dp), $sources, $err, $save, $cancel);
         $box.append($f);
         $box.closest('.awg-chart').css('overflow', 'visible');

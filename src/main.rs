@@ -3910,6 +3910,19 @@ const AWGENEALOGY_V7_HASHES: &[(&str, &str)] = &[
     ("syntax/pedigree.php", "79e149c9df14e9f179689200e435467a5937a01707d35d536d76d324c74e5051"),
     ("syntax/person.php", "a1cf08bbbc587c1e4b66fe0d6e3bd72d3d59190c6f4cd599babfbe01dd481934"),
 ];
+const AWGENEALOGY_V8_HASHES: &[(&str, &str)] = &[
+    ("action.php", "7983c8430589cbc823188942cee2567a59ac898b6cbde6a00ad24a024c3ab6aa"),
+    ("helper.php", "d7723aa66dfde86b021009d38894406c766b7b56ec223989e2c9dc389feb72b9"),
+    ("plugin.info.txt", "dfcf73a231fe7b8b5236d09229445495e7297a932ce2cf4dca7fe61932916aab"),
+    ("print.css", "5bb3b7ac317da8ab75039d8986ac0f390fcab1436d0cd37b16173e67bb746d51"),
+    ("script.js", "6f6a1796d4f87c362435bef80e731500a4f3c31689f25f3f7116a66a3110fbe9"),
+    ("style.css", "dbc6850e46f4b7f3a17e536d513668ccb12ae90b37ca1205f78b69eb7d35aeef"),
+    ("syntax/directory.php", "2a4d51bbbc257f9fd590408ffb266a62e80c6a41cdfabcee9df6f8126f630ed9"),
+    ("syntax/familygroup.php", "2b7ad951d7b70a66327a0976ceef8f0950d1e3ccf47446191bbb4cbda87e2411"),
+    ("syntax/newperson.php", "42aef5e0f1ac783ee157a31182c888a3c667895197178fac4383df9dafef1299"),
+    ("syntax/pedigree.php", "79e149c9df14e9f179689200e435467a5937a01707d35d536d76d324c74e5051"),
+    ("syntax/person.php", "a1cf08bbbc587c1e4b66fe0d6e3bd72d3d59190c6f4cd599babfbe01dd481934"),
+];
 const AWGENEALOGY_PRE_FAMILY_GROUP_HASHES: &[(&str, &str)] = &[
     ("action.php", "22035636a43cf5a585a64031c63dff2b941777b796207d992d82c8dae75ff29b"),
     ("helper.php", "ac6238f91dc6777119dcc8be1fc7f63c57bcd93d46847a5ff345b10cfe53b8cd"),
@@ -3968,7 +3981,8 @@ fn upgrade_unmodified_awgenealogy(src: &Path, dst: &Path, target_root: &Path) {
             }
         }
     }
-    let matches_known_release = plugin_matches_hash_snapshot(dst, &actual, AWGENEALOGY_V7_HASHES)
+    let matches_known_release = plugin_matches_hash_snapshot(dst, &actual, AWGENEALOGY_V8_HASHES)
+        || plugin_matches_hash_snapshot(dst, &actual, AWGENEALOGY_V7_HASHES)
         || plugin_matches_hash_snapshot(dst, &actual, AWGENEALOGY_V6_HASHES)
         || plugin_matches_hash_snapshot(dst, &actual, AWGENEALOGY_V5_HASHES)
         || plugin_matches_hash_snapshot(dst, &actual, AWGENEALOGY_V4_HASHES)
