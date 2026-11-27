@@ -3754,11 +3754,24 @@ fn journal_action(url: &str) -> Option<UserEvent> {
 /// Setup wizard until DokuWiki has been configured, the wiki itself afterwards.
 fn start_url(l: &Layout, origin: &str) -> String {
     // The secret in the first URL makes the server set a session cookie for this window (see router.php).
-    format!("{origin}{}?aw={}", initial_wiki_route(l.wiki.join("conf").join("local.php").exists(), false), l.token)
+    wiki_url_with_session_token(
+        origin,
+        initial_wiki_route(l.wiki.join("conf").join("local.php").exists(), false),
+        &l.token,
+    )
 }
 
 fn login_url(l: &Layout, origin: &str) -> String {
-    format!("{origin}{}?aw={}", initial_wiki_route(l.wiki.join("conf").join("local.php").exists(), true), l.token)
+    wiki_url_with_session_token(
+        origin,
+        initial_wiki_route(l.wiki.join("conf").join("local.php").exists(), true),
+        &l.token,
+    )
+}
+
+fn wiki_url_with_session_token(origin: &str, route: &str, token: &str) -> String {
+    let separator = if route.contains('?') { '&' } else { '?' };
+    format!("{origin}{route}{separator}aw={token}")
 }
 
 fn startup_action(url: &str, startup_page: bool) -> Option<&str> {
@@ -5641,7 +5654,8 @@ fn main() {
 mod tests {
     use super::{
         active_wiki_profile, app_path, initial_wiki_route, profile_session_name, recent_pages_storage_key,
-        release_asset_sha256_from_json, startup_action, unique_path, validate_wiki_name, wiki_profiles, STARTUP_HTML,
+        release_asset_sha256_from_json, startup_action, unique_path, validate_wiki_name, wiki_profiles,
+        wiki_url_with_session_token, STARTUP_HTML,
     };
 
     #[test]
@@ -5732,6 +5746,18 @@ mod tests {
         assert_eq!(startup_action("archivewiki://startup/quit", false), None);
         assert!(STARTUP_HTML.contains("Log in to an existing wiki"));
         assert!(STARTUP_HTML.contains("Create a new wiki"));
+    }
+
+    #[test]
+    fn session_token_is_appended_to_wiki_routes_with_or_without_query_parameters() {
+        assert_eq!(
+            wiki_url_with_session_token("http://127.0.0.1:47631", "/doku.php", "secret"),
+            "http://127.0.0.1:47631/doku.php?aw=secret"
+        );
+        assert_eq!(
+            wiki_url_with_session_token("http://127.0.0.1:47631", "/doku.php?do=login", "secret"),
+            "http://127.0.0.1:47631/doku.php?do=login&aw=secret"
+        );
     }
 
     #[test]
