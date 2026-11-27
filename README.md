@@ -43,14 +43,15 @@ overrides.
 ## How it works
 - `Contents/Resources/{php,dokuwiki}` ship inside the .app (pristine, read-only).
 - First launch copies DokuWiki to `~/Library/Application Support/ArchiveWiki/wiki/` and opens its setup wizard. It asks you to name the archive, create an administrator login, and choose who can view or edit pages. Setup is local; after it, Home offers simple starting steps. ArchiveWiki then removes `install.php` and adds offline defaults (no DokuWiki update check, plain `doku.php?id=` URLs) once. **Your pages/media live in `wiki/data/`.**
+- **File → Manage Wikis** lets you create a separate wiki, import an ArchiveWiki backup as a new wiki, or switch between wikis. Only one wiki is open at a time; switching reopens the app, and each wiki has separate DokuWiki login sessions and recent pages. The existing wiki stays at `Application Support/ArchiveWiki/wiki/`; additional wikis live in `Application Support/ArchiveWiki/wikis/`.
 - Upgrades (new bundled DokuWiki version) overwrite program files but never existing files in `data/`.
 - PHP runs as `php -S 127.0.0.1:47631` (falls back to a free port) with 4 workers, behind `router.php`, which blocks
   `data/ conf/ bin/ inc/ vendor/`, dotfiles, and non-loopback Host headers.
 - Same-origin pop-up windows (including DokuWiki's media manager) open inside ArchiveWiki; external links open in your default browser. Downloads go to `~/Downloads`.
 - Home offers a title-based page creation flow and lists your 8 most recently visited pages; recent pages are stored on
-  this Mac and can be cleared there. If a title already exists, it opens without editing.
+  this Mac, kept separate for each wiki, and can be cleared there. If a title already exists, it opens without editing.
 - An always-visible in-app toolbar provides **Back**, **Forward** and **Refresh**. Menus: Edit (copy/paste), View (Home,
-  Back/Forward, Refresh), File (Print, **Back Up & Restore**, Show Wiki Folder).
+  Back/Forward, Refresh), File (Manage Wikis, Print, **Back Up & Restore**, Show Wiki Folder).
 - Logs: `php-server.log` in the Application Support folder.
 
 ## Genealogy
@@ -88,12 +89,12 @@ Admin → Extension Manager after the first launch.
 
 ## Backups
 - For everyday use, open **File → Back Up & Restore**:
-  - **Back Up Now** saves a copy of your pages, media, and settings as a zip in `~/Documents/ArchiveWiki Backups/`.
-  - **Back Up Automatically (Daily)** is on by default. It runs while the app is open and keeps the newest 10 automatic backups.
+  - **Back Up Now** saves a copy of the active wiki's pages, media, and settings as a zip in `~/Documents/ArchiveWiki Backups/`. Additional wikis use a named subfolder there; the existing default wiki keeps using the original folder.
+  - **Back Up Automatically (Daily)** is on by default for each wiki. It runs while the app is open and keeps the newest 10 automatic backups per wiki.
   - **Restore from Backup…** lets you choose a backup zip. It checks the file, rejects unsafe paths and
   symbolic links, asks you to confirm, saves your current wiki as a `pre-restore` backup, stages the archive, then replaces `data/`
   and `conf/` together before restarting the server. If staging or replacement fails, the previous folders are put back.
-  (The data and configuration that were replaced are kept in `Application Support/ArchiveWiki/restore-previous/` until the next restore.)
+  (The data and configuration that were replaced are kept with that wiki's profile until the next restore.)
 - Older automatic backups are removed; manual and safety backups made before updates/restores are never deleted automatically.
 - **Snapshots & Verification (Advanced)** is for checking file integrity with checksums; it is optional for everyday backups. Snapshots can also be restored.
 - Backups are plain zips on your own disk; turn on FileVault if you want them encrypted at rest.
@@ -112,7 +113,7 @@ What it does **not** do: it doesn't encrypt anything. The wiki's files stay read
 The prompt comes from a small helper (`helper/auth.swift`) built into the app by `scripts/bundle.sh`.
 
 ## Snapshots (integrity checking)
-**File → Back Up & Restore → Snapshots & Verification (Advanced) → Create Archive Snapshot…** saves `~/Documents/ArchiveWiki Snapshots/ArchiveWiki-snapshot-<time>.zip`: your `data/` and `conf/`
+**File → Back Up & Restore → Snapshots & Verification (Advanced) → Create Archive Snapshot…** saves `~/Documents/ArchiveWiki Snapshots/ArchiveWiki-snapshot-<time>.zip` for the default wiki, or a named subfolder for another wiki: its `data/` and `conf/`
 (pages, older revisions, media, settings; no caches), plus `MANIFEST.sha256` (a SHA-256 for every file) and `SNAPSHOT.txt`
 (when, app/DokuWiki/PHP versions, file count). The zip's own checksum is saved beside it as `<name>.zip.sha256`.
 **Verify Snapshot…** in the same submenu safely stages a snapshot and recomputes every hash, reporting changed, missing or unexpected files.
@@ -172,7 +173,7 @@ The app icon comes from `assets/icon.png`; the wiki branding files are in `asset
 ## Updates
 - On launch (at most once per 24 h) ArchiveWiki checks DokuWiki's `stable` VERSION and the newest PHP patch release over HTTPS. Offline or failing checks are silent.
 - If a newer release exists you get a dialog: **Update / Later / Skip This Version**. Nothing happens without your click.
-- On Update: it downloads the official release, unpacks and verifies it, writes `~/Documents/ArchiveWiki Backups/pre-update-<version>-<time>.zip`
+- On Update: it downloads the official release, unpacks and verifies it, writes a pre-update zip to the active wiki's backup folder
   (data + conf), stops PHP, applies the files (never overwriting existing `data/` files, removing files listed in DokuWiki's
   `deleted.files`), restarts and reloads. If applying fails, the previous program files are restored automatically.
 - **PHP** works the same way (dialog → confirm), but stays within your installed minor line (e.g. 8.3.x → 8.3.y), so DokuWiki

@@ -2986,7 +2986,9 @@ fn release_asset_sha256_from_json(body: &str, asset_name: &str) -> Result<String
 enum UserEvent {
     Menu(MenuEvent),
     /// The user chose a backup zip to restore (already validated and confirmed).
-    RestoreBackup { zip: PathBuf },
+    RestoreBackup { profile_id: String, zip: PathBuf },
+    /// A new or imported wiki has been prepared and is ready to open.
+    WikiCreated(Result<WikiProfile, String>),
     /// Lock the app now (menu, inactivity or wake from sleep).
     LockNow,
     /// The user authenticated (or chose to continue without).
@@ -3002,8 +3004,19 @@ enum UserEvent {
     /// A verified PHP build has been downloaded; main thread swaps it in (with automatic rollback).
     ApplyPhp { staged: PathBuf, version: String },
     /// A verified update has been downloaded + backed up; main thread applies it.
-    ApplyUpdate { staging: PathBuf, version: String },
+    ApplyUpdate { profile_id: String, staging: PathBuf, version: String },
 }
+
+#[derive(Clone, Debug)]
+struct WikiProfile {
+    id: String,
+    name: String,
+    root: PathBuf,
+    wiki: PathBuf,
+}
+
+const DEFAULT_WIKI_ID: &str = "default";
+const DEFAULT_WIKI_NAME: &str = "Default Wiki";
 
 #[derive(Clone)]
 struct Layout {
@@ -3012,6 +3025,7 @@ struct Layout {
     runtime: PathBuf,
     bundle_wiki: PathBuf,
     wiki: PathBuf,
+    session_preload: Option<PathBuf>,
     router: PathBuf,
     log: PathBuf,
     pidfile: PathBuf,
@@ -3021,6 +3035,9 @@ struct Layout {
     updates: PathBuf,
     rollback: PathBuf,
     support: PathBuf,
+    profile_root: PathBuf,
+    profile_id: String,
+    profile_name: String,
     token: String, // per-launch secret: only the app window can talk to the local wiki server
 }
 
@@ -3031,24 +3048,161 @@ impl Layout {
             .ok_or_else(|| anyhow!("Cannot locate ~/Library/Application Support"))?
             .join(APP_NAME);
         fs::create_dir_all(&support)?;
+        let profile = active_wiki_profile(&support)?;
+        let profile_root = profile.root.clone();
         Ok(Self {
             php: support.join("runtime").join("php"),
             bundle_php: res.join("php"),
             runtime: support.join("runtime"),
             bundle_wiki: res.join("dokuwiki"),
-            wiki: support.join("wiki"),
+            wiki: profile.wiki,
+            session_preload: (profile.id != DEFAULT_WIKI_ID).then(|| profile_root.join("session.php")),
             router: support.join("router.php"),
             log: support.join("php-server.log"),
             pidfile: support.join("php.pid"),
             bundle_auth: res.join("auth-helper"),
             bundle_plugins: res.join("plugins"),
             auth_helper: support.join("runtime").join("auth-helper"),
-            updates: support.join("updates"),
-            rollback: support.join("wiki-rollback"),
+            updates: profile_root.join("updates"),
+            rollback: profile_root.join("wiki-rollback"),
             support,
+            profile_root,
+            profile_id: profile.id,
+            profile_name: profile.name,
             token: random_token(),
         })
     }
+
+    fn for_profile(&self, profile: &WikiProfile) -> Self {
+        let mut layout = self.clone();
+        layout.wiki = profile.wiki.clone();
+        layout.session_preload = (profile.id != DEFAULT_WIKI_ID).then(|| profile.root.join("session.php"));
+        layout.updates = profile.root.join("updates");
+        layout.rollback = profile.root.join("wiki-rollback");
+        layout.profile_root = profile.root.clone();
+        layout.profile_id = profile.id.clone();
+        layout.profile_name = profile.name.clone();
+        layout.token = random_token();
+        layout
+    }
+}
+
+fn install_profile_session(l: &Layout) -> Result<()> {
+    let Some(path) = &l.session_preload else { return Ok(()) };
+    let name = profile_session_name(&l.profile_id)?.ok_or_else(|| anyhow!("The default wiki should not need a session preload."))?;
+    let script = format!("<?php\nif (!defined('DOKU_SESSION_NAME')) define('DOKU_SESSION_NAME', '{name}');\n");
+    fs::write(path, script)?;
+    Ok(())
+}
+
+fn profile_session_name(profile_id: &str) -> Result<Option<String>> {
+    if profile_id == DEFAULT_WIKI_ID {
+        return Ok(None);
+    }
+    let id = profile_id
+        .strip_prefix("wiki-")
+        .filter(|_| valid_wiki_profile_id(profile_id))
+        .ok_or_else(|| anyhow!("The wiki profile has an invalid session identifier."))?;
+    Ok(Some(format!("ArchiveWiki_{id}")))
+}
+
+fn validate_wiki_name(name: &str) -> Result<String> {
+    let name = name.trim();
+    let length = name.chars().count();
+    if length == 0
+        || length > 64
+        || name.len() > 200
+        || name == "."
+        || name == ".."
+        || name.chars().any(|c| c.is_control() || matches!(c, '/' | '\\' | ':'))
+    {
+        bail!("Choose a wiki name of 1–64 characters that fits in a folder name and contains no slashes or control characters.");
+    }
+    Ok(name.to_owned())
+}
+
+fn valid_wiki_profile_id(id: &str) -> bool {
+    id.strip_prefix("wiki-")
+        .map(|suffix| suffix.len() == 32 && suffix.bytes().all(|b| b.is_ascii_hexdigit()))
+        .unwrap_or(false)
+}
+
+fn wiki_profiles(support: &Path) -> Result<Vec<WikiProfile>> {
+    let profiles_root = support.join("wikis");
+    fs::create_dir_all(&profiles_root)?;
+    let default_root = profiles_root.join(DEFAULT_WIKI_ID);
+    fs::create_dir_all(&default_root)?;
+    let default_name_file = default_root.join("name");
+    if !default_name_file.exists() {
+        fs::write(&default_name_file, DEFAULT_WIKI_NAME)?;
+    }
+    for file in ["backup-auto-off", "last-auto-backup", "update-skipped"] {
+        let legacy = support.join(file);
+        let current = default_root.join(file);
+        if !current.exists() && legacy.is_file() && fs::rename(&legacy, &current).is_err() {
+            fs::copy(&legacy, &current)?;
+            fs::remove_file(legacy)?;
+        }
+    }
+    for directory in ["updates", "wiki-rollback", "restore-stage", "restore-previous", "restore-failed", "snapshot-staging", "snapshot-verify"] {
+        let legacy = support.join(directory);
+        let current = default_root.join(directory);
+        if !current.exists() && legacy.is_dir() {
+            fs::rename(legacy, current)?;
+        }
+    }
+    let default_name = validate_wiki_name(&fs::read_to_string(default_name_file)?)?;
+    let mut profiles = vec![WikiProfile {
+        id: DEFAULT_WIKI_ID.to_owned(),
+        name: default_name,
+        root: default_root,
+        wiki: support.join("wiki"),
+    }];
+
+    for entry in fs::read_dir(&profiles_root)? {
+        let entry = entry?;
+        if !entry.file_type()?.is_dir() {
+            continue;
+        }
+        let id = entry.file_name().to_string_lossy().into_owned();
+        if !valid_wiki_profile_id(&id) {
+            continue;
+        }
+        let root = entry.path();
+        let wiki = root.join("wiki");
+        if !wiki.join("doku.php").is_file() {
+            continue;
+        }
+        let name_file = root.join("name");
+        if !name_file.is_file() {
+            continue;
+        }
+        profiles.push(WikiProfile {
+            id,
+            name: validate_wiki_name(&fs::read_to_string(name_file)?)?,
+            root,
+            wiki,
+        });
+    }
+    profiles.sort_by_key(|profile| profile.name.to_lowercase());
+    Ok(profiles)
+}
+
+fn active_wiki_profile(support: &Path) -> Result<WikiProfile> {
+    let profiles = wiki_profiles(support)?;
+    let active_file = support.join("active-wiki");
+    let active_id = match fs::read_to_string(&active_file) {
+        Ok(id) => id.trim().to_owned(),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => DEFAULT_WIKI_ID.to_owned(),
+        Err(e) => return Err(e.into()),
+    };
+    if let Some(profile) = profiles.iter().find(|profile| profile.id == active_id) {
+        return Ok(profile.clone());
+    }
+    profiles
+        .into_iter()
+        .find(|profile| profile.id == DEFAULT_WIKI_ID)
+        .ok_or_else(|| anyhow!("The default wiki profile is unavailable."))
 }
 
 fn resource_dir() -> Result<PathBuf> {
@@ -3136,6 +3290,39 @@ fn sync_wiki(bundle: &Path, wiki: &Path) -> Result<()> {
         apply_offline_defaults(wiki);
     }
     Ok(())
+}
+
+fn create_wiki_profile(l: &Layout, name: &str, import: Option<&Path>) -> Result<WikiProfile> {
+    let name = validate_wiki_name(name)?;
+    let profiles = wiki_profiles(&l.support)?;
+    if profiles.iter().any(|profile| profile.name.eq_ignore_ascii_case(&name)) {
+        bail!("A wiki named \"{name}\" already exists. Choose a different name.");
+    }
+    if let Some(zip) = import {
+        validate_backup_zip(zip).context("the selected file isn't a valid ArchiveWiki backup")?;
+    }
+
+    let id = format!("wiki-{}", random_token());
+    let root = l.support.join("wikis").join(&id);
+    fs::create_dir(&root)?;
+    let profile = WikiProfile { id, name, wiki: root.join("wiki"), root };
+    let result = (|| -> Result<()> {
+        fs::write(profile.root.join("name"), &profile.name)?;
+        let target = l.for_profile(&profile);
+        install_profile_session(&target)?;
+        sync_wiki(&target.bundle_wiki, &target.wiki)?;
+        install_plugins(&target);
+        if let Some(zip) = import {
+            restore_backup(&target, zip, false).context("could not import the backup")?;
+            sync_wiki(&target.bundle_wiki, &target.wiki)?;
+        }
+        Ok(())
+    })();
+    if let Err(e) = result {
+        let _ = fs::remove_dir_all(&profile.root);
+        return Err(e);
+    }
+    Ok(profile)
 }
 
 /// Put the ArchiveWiki logo/favicon where DokuWiki's template looks for them (data/media/wiki/logo.png,
@@ -3668,7 +3855,8 @@ fn ask_update(what: &str, current: &str, new: &str, note: &str) -> Choice {
 }
 
 fn is_skipped(l: &Layout, file: &str, version: &str) -> bool {
-    fs::read_to_string(l.support.join(file)).map(|s| s.trim() == version).unwrap_or(false)
+    let root = if file == "update-skipped" { &l.profile_root } else { &l.support };
+    fs::read_to_string(root.join(file)).map(|s| s.trim() == version).unwrap_or(false)
 }
 
 /// Runs on a background thread. `manual` = user chose "Check for Updates…" (always reports a result);
@@ -3709,14 +3897,14 @@ fn check_dokuwiki(l: &Layout, proxy: &EventLoopProxy<UserEvent>, manual: bool) -
     match ask_update("DokuWiki", &installed, &remote, note) {
         Choice::Later => return Outcome::Offered,
         Choice::Skip => {
-            let _ = fs::write(l.support.join("update-skipped"), &rk);
+            let _ = fs::write(l.profile_root.join("update-skipped"), &rk);
             return Outcome::Offered;
         }
         Choice::Update => {}
     }
     match prepare_update(l, &installed) {
         Ok(staging) => {
-            let _ = proxy.send_event(UserEvent::ApplyUpdate { staging, version: remote });
+            let _ = proxy.send_event(UserEvent::ApplyUpdate { profile_id: l.profile_id.clone(), staging, version: remote });
             Outcome::Started
         }
         Err(e) => {
@@ -3966,18 +4154,22 @@ impl Server {
             let _ = fs::remove_file(&l.log);
         }
         let log = fs::OpenOptions::new().create(true).append(true).open(&l.log)?;
-        let child = Command::new(&l.php)
-            .args([
-                "-n",
-                "-d", "memory_limit=512M",
-                "-d", "upload_max_filesize=128M",
-                "-d", "post_max_size=128M",
-                "-d", "max_execution_time=120",
-                "-d", "display_errors=0",
-                "-d", "log_errors=1",
-            ])
+        let mut command = Command::new(&l.php);
+        command.args([
+            "-n",
+            "-d", "memory_limit=512M",
+            "-d", "upload_max_filesize=128M",
+            "-d", "post_max_size=128M",
+            "-d", "max_execution_time=120",
+            "-d", "display_errors=0",
+            "-d", "log_errors=1",
+        ])
             .arg("-d")
-            .arg(format!("date.timezone={}", detect_tz()))
+            .arg(format!("date.timezone={}", detect_tz()));
+        if let Some(preload) = &l.session_preload {
+            command.arg("-d").arg(format!("auto_prepend_file={}", preload.display()));
+        }
+        let child = command
             .arg("-S")
             .arg(format!("127.0.0.1:{port}"))
             .arg("-t")
@@ -4099,12 +4291,25 @@ fn unique_path(p: PathBuf) -> PathBuf {
     p
 }
 
-fn backup_dir() -> Result<PathBuf> {
+fn backup_root() -> Result<PathBuf> {
     Ok(dirs::document_dir().ok_or_else(|| anyhow!("Cannot locate ~/Documents"))?.join("ArchiveWiki Backups"))
 }
 
+fn profile_folder_name(l: &Layout) -> String {
+    format!("{} [{}]", l.profile_name, l.profile_id)
+}
+
+fn backup_dir(l: &Layout) -> Result<PathBuf> {
+    let root = backup_root()?;
+    if l.profile_id == DEFAULT_WIKI_ID {
+        Ok(root)
+    } else {
+        Ok(root.join(profile_folder_name(l)))
+    }
+}
+
 fn backup(l: &Layout, prefix: &str) -> Result<PathBuf> {
-    let dir = backup_dir()?;
+    let dir = backup_dir(l)?;
     fs::create_dir_all(&dir)?;
     let ts = Command::new("date").arg("+%Y%m%d-%H%M%S").output()?;
     let ts = String::from_utf8_lossy(&ts.stdout).trim().to_string();
@@ -4122,11 +4327,11 @@ fn backup(l: &Layout, prefix: &str) -> Result<PathBuf> {
 }
 
 fn auto_backup_enabled(l: &Layout) -> bool {
-    !l.support.join("backup-auto-off").exists()
+    !l.profile_root.join("backup-auto-off").exists()
 }
 
 fn auto_backup_due(l: &Layout) -> bool {
-    fs::read_to_string(l.support.join("last-auto-backup"))
+    fs::read_to_string(l.profile_root.join("last-auto-backup"))
         .ok()
         .and_then(|s| s.trim().parse::<u64>().ok())
         .map(|t| now_secs().saturating_sub(t) >= AUTO_BACKUP_INTERVAL_SECS)
@@ -4134,8 +4339,8 @@ fn auto_backup_due(l: &Layout) -> bool {
 }
 
 /// Keep only the newest `keep` automatic backups (manual and pre-update/pre-restore backups are never deleted).
-fn prune_auto_backups(keep: usize) {
-    let Ok(dir) = backup_dir() else { return };
+fn prune_auto_backups(l: &Layout, keep: usize) {
+    let Ok(dir) = backup_dir(l) else { return };
     let Ok(rd) = fs::read_dir(&dir) else { return };
     let mut files: Vec<PathBuf> = rd
         .flatten()
@@ -4159,27 +4364,28 @@ fn prune_auto_backups(keep: usize) {
 fn auto_backup_loop(l: Layout) {
     thread::sleep(Duration::from_secs(45));
     loop {
-        if auto_backup_enabled(&l) && auto_backup_due(&l) && backup(&l, "auto-backup").is_ok() {
-            let _ = fs::write(l.support.join("last-auto-backup"), now_secs().to_string());
-            prune_auto_backups(AUTO_BACKUP_KEEP);
+        if let Ok(profiles) = wiki_profiles(&l.support) {
+            for profile in profiles {
+                let profile_layout = l.for_profile(&profile);
+                if auto_backup_enabled(&profile_layout)
+                    && auto_backup_due(&profile_layout)
+                    && backup(&profile_layout, "auto-backup").is_ok()
+                {
+                    let _ = fs::write(profile_layout.profile_root.join("last-auto-backup"), now_secs().to_string());
+                    prune_auto_backups(&profile_layout, AUTO_BACKUP_KEEP);
+                }
+            }
         }
         thread::sleep(Duration::from_secs(60 * 60));
     }
 }
 
 /// Background thread: let the user pick a backup, validate it, confirm, then hand it to the main thread.
-fn restore_flow(proxy: &EventLoopProxy<UserEvent>) {
-    let start = backup_dir().ok().filter(|d| d.exists()).map(|d| d.to_string_lossy().into_owned());
-    let loc = start.map(|d| format!(" default location (POSIX file \"{}\")", esc(&d))).unwrap_or_default();
-    let script = format!("POSIX path of (choose file with prompt \"Choose a backup to restore\" of type {{\"zip\"}}{loc})");
-    let Ok(out) = Command::new("osascript").args(["-e", &script]).output() else { return };
-    if !out.status.success() {
-        return; // cancelled
-    }
-    let zip = PathBuf::from(String::from_utf8_lossy(&out.stdout).trim());
+fn restore_flow(l: &Layout, proxy: &EventLoopProxy<UserEvent>) -> Result<()> {
+    let Some(zip) = pick_zip("Choose a backup to restore", Some(backup_dir(l)?))? else { return Ok(()) };
     if let Err(e) = validate_backup_zip(&zip) {
         alert(&format!("That file can't be restored.\n\n{e:#}"));
-        return;
+        return Ok(());
     }
     let name = zip.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
     let msg = format!(
@@ -4189,17 +4395,19 @@ fn restore_flow(proxy: &EventLoopProxy<UserEvent>) {
         "display dialog \"{}\" with title \"{APP_NAME}\" buttons {{\"Cancel\", \"Restore\"}} default button \"Cancel\" cancel button \"Cancel\" with icon caution",
         esc(&msg)
     );
-    if let Ok(o) = Command::new("osascript").args(["-e", &script]).output() {
-        if o.status.success() && String::from_utf8_lossy(&o.stdout).contains("Restore") {
-            let _ = proxy.send_event(UserEvent::RestoreBackup { zip });
-        }
+    let out = Command::new("osascript").args(["-e", &script]).output().context("could not confirm the restore")?;
+    if out.status.success() && String::from_utf8_lossy(&out.stdout).contains("Restore") {
+        proxy
+            .send_event(UserEvent::RestoreBackup { profile_id: l.profile_id.clone(), zip })
+            .map_err(|e| anyhow!("could not start the restore: {e}"))?;
     }
+    Ok(())
 }
 
 /// Main thread, server stopped. Stages and validates the archive before replacing live files.
-fn restore_backup(l: &Layout, zip: &Path) -> Result<()> {
+fn restore_backup(l: &Layout, zip: &Path, save_current: bool) -> Result<()> {
     let entries = inspect_archive(zip)?;
-    let stage = l.support.join("restore-stage");
+    let stage = l.profile_root.join("restore-stage");
     let result = (|| -> Result<()> {
         extract_archive(zip, &stage, &entries)?;
         for top in ["data", "conf"] {
@@ -4209,8 +4417,10 @@ fn restore_backup(l: &Layout, zip: &Path) -> Result<()> {
         }
         let _ = fs::remove_file(stage.join(snapshot::MANIFEST));
         let _ = fs::remove_file(stage.join("SNAPSHOT.txt"));
-        backup(l, "pre-restore").context("could not save your current wiki first")?;
-        install_staged_restore(&l.wiki, &stage, &l.support.join("restore-previous"))?;
+        if save_current {
+            backup(l, "pre-restore").context("could not save your current wiki first")?;
+        }
+        install_staged_restore(&l.wiki, &stage, &l.profile_root.join("restore-previous"))?;
         let data = l.wiki.join("data");
         for d in ["cache", "tmp", "locks", "log", "index", "meta", "attic", "media", "media_attic", "media_meta", "pages"] {
             let _ = fs::create_dir_all(data.join(d));
@@ -4234,10 +4444,23 @@ fn appearance_mode(l: &Layout) -> String {
 /// Runs at the start of every page: applies the saved appearance (the wiki's CSS reacts to data-aw-theme).
 fn appearance_script(default_mode: &str) -> String {
     format!(
-        "(function(){{var t;try{{t=localStorage.getItem('aw-theme');}}catch(e){{}}t=t||'{default_mode}';\
+        "(function(){{var t='{default_mode}';\
          function a(){{document.documentElement.setAttribute('data-aw-theme',t);}}\
          if(document.documentElement){{a();}}else{{document.addEventListener('DOMContentLoaded',a);}}}})();"
     )
+}
+
+fn app_ui_script(l: &Layout) -> String {
+    let key = recent_pages_storage_key(&l.profile_id);
+    APP_UI_SCRIPT.replace("archivewiki.recent-pages", &key)
+}
+
+fn recent_pages_storage_key(profile_id: &str) -> String {
+    if profile_id == DEFAULT_WIKI_ID {
+        "archivewiki.recent-pages".to_owned()
+    } else {
+        format!("archivewiki.recent-pages.{profile_id}")
+    }
 }
 
 fn hotkey_enabled(l: &Layout) -> bool {
@@ -4373,16 +4596,25 @@ fn lock_monitor(l: Layout, proxy: EventLoopProxy<UserEvent>) {
 
 // ---------------------------------------------------------------- snapshots
 
-fn snapshot_dir() -> Result<PathBuf> {
+fn snapshot_root() -> Result<PathBuf> {
     Ok(dirs::document_dir().ok_or_else(|| anyhow!("Cannot locate ~/Documents"))?.join("ArchiveWiki Snapshots"))
+}
+
+fn snapshot_dir(l: &Layout) -> Result<PathBuf> {
+    let root = snapshot_root()?;
+    if l.profile_id == DEFAULT_WIKI_ID {
+        Ok(root)
+    } else {
+        Ok(root.join(profile_folder_name(l)))
+    }
 }
 
 /// A snapshot is a restorable zip of data/ and conf/ plus MANIFEST.sha256 (a SHA-256 for every file) and
 /// SNAPSHOT.txt, with the zip's own checksum saved beside it. Files are cloned first so the manifest and the zip agree.
 fn create_snapshot(l: &Layout) -> Result<(PathBuf, usize)> {
-    let dir = snapshot_dir()?;
+    let dir = snapshot_dir(l)?;
     fs::create_dir_all(&dir)?;
-    let stage = l.support.join("snapshot-staging");
+    let stage = l.profile_root.join("snapshot-staging");
     let _ = fs::remove_dir_all(&stage);
     fs::create_dir_all(&stage)?;
     let result = (|| -> Result<(PathBuf, usize)> {
@@ -4457,7 +4689,7 @@ fn verify_snapshot_zip(l: &Layout, zip: &Path) -> Result<(bool, String)> {
         }
         Err(_) => notes.push_str("No .sha256 file was found beside the zip, so only its contents were checked.\n"),
     }
-    let tmp = l.support.join("snapshot-verify");
+    let tmp = l.profile_root.join("snapshot-verify");
     let _ = fs::remove_dir_all(&tmp);
     fs::create_dir_all(&tmp)?;
     let res = (|| -> Result<(bool, String)> {
@@ -4486,17 +4718,17 @@ fn verify_snapshot_zip(l: &Layout, zip: &Path) -> Result<(bool, String)> {
     res
 }
 
-fn pick_zip(prompt: &str, start: Option<PathBuf>) -> Option<PathBuf> {
+fn pick_zip(prompt: &str, start: Option<PathBuf>) -> Result<Option<PathBuf>> {
     let loc = start
         .filter(|d| d.exists())
         .map(|d| format!(" default location (POSIX file \"{}\")", esc(&d.to_string_lossy())))
         .unwrap_or_default();
     let script = format!("POSIX path of (choose file with prompt \"{}\" of type {{\"zip\"}}{loc})", esc(prompt));
-    let out = Command::new("osascript").args(["-e", &script]).output().ok()?;
+    let out = Command::new("osascript").args(["-e", &script]).output().context("could not open the file chooser")?;
     if !out.status.success() {
-        return None; // cancelled
+        return Ok(None); // cancelled
     }
-    Some(PathBuf::from(String::from_utf8_lossy(&out.stdout).trim()))
+    Ok(Some(PathBuf::from(String::from_utf8_lossy(&out.stdout).trim())))
 }
 
 fn snapshot_flow(l: &Layout) {
@@ -4512,7 +4744,21 @@ fn snapshot_flow(l: &Layout) {
 }
 
 fn verify_flow(l: &Layout) {
-    let Some(zip) = pick_zip("Choose a snapshot to verify", snapshot_dir().ok()) else { return };
+    let start = match snapshot_dir(l) {
+        Ok(dir) => Some(dir),
+        Err(e) => {
+            alert(&format!("The snapshot folder could not be located.\n\n{e:#}"));
+            return;
+        }
+    };
+    let zip = match pick_zip("Choose a snapshot to verify", start) {
+        Ok(Some(zip)) => zip,
+        Ok(None) => return,
+        Err(e) => {
+            alert(&format!("The snapshot file chooser could not be opened.\n\n{e:#}"));
+            return;
+        }
+    };
     match verify_snapshot_zip(l, &zip) {
         Ok((true, t)) => info(&format!("Snapshot verified.\n\n{t}")),
         Ok((false, t)) => alert(&format!("Problem found.\n\n{t}")),
@@ -4522,6 +4768,121 @@ fn verify_flow(l: &Layout) {
 
 fn esc(s: &str) -> String {
     s.replace('\\', "\\\\").replace('"', "\\\"")
+}
+
+fn prompt_wiki_name(importing: bool) -> Result<Option<String>> {
+    let prompt = if importing { "Name this imported wiki:" } else { "Name your new wiki:" };
+    let script = format!(
+        "text returned of (display dialog \"{}\" with title \"{APP_NAME}\" default answer \"\" buttons {{\"Cancel\", \"Continue\"}} default button \"Continue\" cancel button \"Cancel\")",
+        esc(prompt)
+    );
+    let out = Command::new("osascript").args(["-e", &script]).output().context("could not open the wiki name prompt")?;
+    if !out.status.success() {
+        return Ok(None);
+    }
+    Ok(Some(String::from_utf8_lossy(&out.stdout).trim().to_string()))
+}
+
+fn create_wiki_flow(l: &Layout, proxy: &EventLoopProxy<UserEvent>, importing: bool) -> Result<()> {
+    let Some(name) = prompt_wiki_name(importing)? else { return Ok(()) };
+    let import = if importing {
+        let Some(zip) = pick_zip("Choose an ArchiveWiki backup to import", Some(backup_root()?))? else { return Ok(()) };
+        Some(zip)
+    } else {
+        None
+    };
+    let (l, proxy) = (l.clone(), proxy.clone());
+    thread::spawn(move || {
+        let result = create_wiki_profile(&l, &name, import.as_deref()).map_err(|e| format!("{e:#}"));
+        let _ = proxy.send_event(UserEvent::WikiCreated(result));
+    });
+    Ok(())
+}
+
+fn choose_wiki_profile(l: &Layout) -> Result<Option<WikiProfile>> {
+    let profiles = wiki_profiles(&l.support)?;
+    if profiles.is_empty() {
+        return Ok(None);
+    }
+    let choices = profiles.iter().map(|profile| format!("\"{}\"", esc(&profile.name))).collect::<Vec<_>>().join(", ");
+    let script = format!(
+        "choose from list {{{choices}}} with prompt \"Choose a wiki to open\" with title \"{APP_NAME}\""
+    );
+    let out = Command::new("osascript").args(["-e", &script]).output().context("could not open the wiki chooser")?;
+    if !out.status.success() {
+        return Ok(None);
+    }
+    let chosen = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    profiles
+        .into_iter()
+        .find(|profile| profile.name == chosen)
+        .map(Some)
+        .ok_or_else(|| anyhow!("The selected wiki could not be found in the profile list."))
+}
+
+fn relaunch_application() -> Result<()> {
+    let executable = std::env::current_exe()?;
+    if let Some(bundle) = executable.ancestors().find(|path| path.extension().is_some_and(|ext| ext == "app")) {
+        let status = Command::new("/usr/bin/open").args(["-n"]).arg(bundle).status()?;
+        if !status.success() {
+            bail!("macOS could not reopen ArchiveWiki");
+        }
+    } else {
+        Command::new(executable).spawn()?;
+    }
+    Ok(())
+}
+
+fn confirm_wiki_switch(name: &str) -> Result<bool> {
+    let message = format!(
+        "Switch to \"{name}\"?\n\nArchiveWiki will reopen on that wiki. Save any edits first."
+    );
+    let script = format!(
+        "display dialog \"{}\" with title \"{APP_NAME}\" buttons {{\"Cancel\", \"Switch\"}} default button \"Cancel\" cancel button \"Cancel\" with icon caution",
+        esc(&message)
+    );
+    Ok(Command::new("osascript").args(["-e", &script]).status().context("could not confirm the wiki switch")?.success())
+}
+
+fn switch_profile(
+    l: &Layout,
+    profile: &WikiProfile,
+    port: u16,
+    server: &mut Server,
+    control_flow: &mut ControlFlow,
+) -> Result<bool> {
+    if profile.id == l.profile_id || !confirm_wiki_switch(&profile.name)? {
+        return Ok(false);
+    }
+    fs::write(l.support.join("active-wiki"), &profile.id)?;
+    server.stop();
+    if let Err(launch_error) = relaunch_application() {
+        let selection_error = fs::write(l.support.join("active-wiki"), &l.profile_id).err();
+        match start_checked(l, port) {
+            Ok(restored) => {
+                *server = restored;
+                return Err(match selection_error {
+                    Some(selection_error) => anyhow!(
+                        "Could not switch wikis, and the saved selection could not be reset ({selection_error}). The current wiki remains open.\n\n{launch_error:#}"
+                    ),
+                    None => anyhow!("Could not switch wikis; the current wiki remains open.\n\n{launch_error:#}"),
+                });
+            }
+            Err(restart_error) => {
+                *control_flow = ControlFlow::Exit;
+                return Err(match selection_error {
+                    Some(selection_error) => anyhow!(
+                        "Could not switch wikis ({launch_error:#}), reset the selection ({selection_error}), or restart the current wiki server ({restart_error:#})."
+                    ),
+                    None => anyhow!(
+                        "Could not switch wikis ({launch_error:#}) or restart the current wiki server ({restart_error:#})."
+                    ),
+                });
+            }
+        }
+    }
+    *control_flow = ControlFlow::Exit;
+    Ok(true)
 }
 
 fn dialog(msg: &str, icon: &str) {
@@ -4591,6 +4952,14 @@ fn build_menu(
     }
 
     let file = Submenu::new("File", true);
+    let wikis = Submenu::new("Manage Wikis", true);
+    wikis.append_items(&[
+        &MenuItem::with_id("newwiki", "New Wiki…", true, None),
+        &MenuItem::with_id("importwiki", "Import Backup as New Wiki…", true, None),
+        &MenuItem::with_id("switchwiki", "Switch Wiki…", true, None),
+        &PredefinedMenuItem::separator(),
+        &MenuItem::with_id("wikisfolder", "Show Wikis Folder in Finder", true, None),
+    ])?;
     let snapshots = Submenu::new("Snapshots & Verification (Advanced)", true);
     snapshots.append_items(&[
         &MenuItem::with_id("snapshot", "Create Archive Snapshot…", true, None),
@@ -4605,6 +4974,8 @@ fn build_menu(
         &snapshots,
     ])?;
     file.append_items(&[
+        &wikis,
+        &PredefinedMenuItem::separator(),
         &MenuItem::with_id("newnote", "New Note", true, acc(Modifiers::META | Modifiers::SHIFT, Code::KeyN)),
         &MenuItem::with_id("todayjournal", "Today's Journal Entry", true, acc(Modifiers::META | Modifiers::SHIFT, Code::KeyJ)),
         &hotkey_item,
@@ -4669,6 +5040,7 @@ fn run() -> Result<()> {
     install_auth_helper(&layout);
     sync_wiki(&layout.bundle_wiki, &layout.wiki)?;
     install_plugins(&layout);
+    install_profile_session(&layout)?;
     fs::write(&layout.router, ROUTER_PHP)?;
 
     let port = pick_port();
@@ -4723,7 +5095,7 @@ fn run() -> Result<()> {
     let initialization_script = format!(
         "{}{}",
         appearance_script(&appearance_mode(&layout)),
-        APP_UI_SCRIPT
+        app_ui_script(&layout)
     );
     let webview = WebViewBuilder::new()
         .with_url(start_url(&layout, &origin))
@@ -4790,7 +5162,11 @@ fn run() -> Result<()> {
                 server.stop();
                 *control_flow = ControlFlow::Exit;
             }
-            Event::UserEvent(UserEvent::ApplyUpdate { staging, version }) => {
+            Event::UserEvent(UserEvent::ApplyUpdate { profile_id, staging, version }) => {
+                if profile_id != layout.profile_id {
+                    alert("The wiki changed before this update could be applied. Check for updates again from the active wiki.");
+                    return;
+                }
                 server.stop();
                 let res = apply_update(&layout, &staging);
                 match Server::start(&layout, port) {
@@ -4808,9 +5184,7 @@ fn run() -> Result<()> {
                 }
                 let _ = webview.load_url(&start_url(&layout, &origin));
                 thread::spawn(move || match res {
-                    Ok(()) => info(&format!(
-                        "Updated to DokuWiki {version}.\n\nA pre-update backup is in Documents/ArchiveWiki Backups."
-                    )),
+                    Ok(()) => info(&format!("Updated to DokuWiki {version}.\n\nA pre-update backup was saved in this wiki's backup folder.")),
                     Err(e) => alert(&format!("The update failed and your previous version was restored.\n\n{e:#}")),
                 });
             }
@@ -4846,14 +5220,18 @@ fn run() -> Result<()> {
                     Err(e) => alert(&format!("The PHP update didn't work, so the previous version was restored.\n\n{e:#}")),
                 });
             }
-            Event::UserEvent(UserEvent::RestoreBackup { zip }) => {
+            Event::UserEvent(UserEvent::RestoreBackup { profile_id, zip }) => {
+                if profile_id != layout.profile_id {
+                    alert("The active wiki changed before this restore could begin. Please choose the backup again.");
+                    return;
+                }
                 server.stop();
-                let mut res = restore_backup(&layout, &zip);
+                let mut res = restore_backup(&layout, &zip, true);
                 match start_checked(&layout, port) {
                     Ok(s) => server = s,
                     Err(start_error) if res.is_ok() => {
-                        let previous = layout.support.join("restore-previous");
-                        let failed = layout.support.join("restore-failed");
+                        let previous = layout.profile_root.join("restore-previous");
+                        let failed = layout.profile_root.join("restore-failed");
                         if let Err(rollback_error) = install_staged_restore(&layout.wiki, &previous, &failed) {
                             alert(&format!("The restored wiki would not start ({start_error:#}), and its previous files could not be put back ({rollback_error:#})."));
                             *control_flow = ControlFlow::Exit;
@@ -4877,10 +5255,23 @@ fn run() -> Result<()> {
                 }
                 let _ = webview.load_url(&start_url(&layout, &origin));
                 thread::spawn(move || match res {
-                    Ok(()) => info("Backup restored. Your previous wiki was saved as a pre-restore backup in Documents/ArchiveWiki Backups."),
+                    Ok(()) => info("Backup restored. Your previous wiki was saved as a pre-restore backup in this wiki's backup folder."),
                     Err(e) => alert(&format!("The restore didn't complete.\n\n{e:#}")),
                 });
             }
+            Event::UserEvent(UserEvent::WikiCreated(result)) => match result {
+                Ok(profile) => {
+                    match switch_profile(&layout, &profile, port, &mut server, control_flow) {
+                        Ok(true) => {}
+                        Ok(false) => info(&format!(
+                            "\"{}\" was created. You can open it later from File → Manage Wikis → Switch Wiki.",
+                            profile.name
+                        )),
+                        Err(e) => alert(&format!("The wiki was created, but ArchiveWiki couldn't switch to it.\n\n{e:#}")),
+                    }
+                }
+                Err(e) => alert(&format!("The wiki could not be created.\n\n{e}")),
+            },
             Event::UserEvent(UserEvent::QuickNote) => {
                 if !LOCKED.load(Ordering::SeqCst) {
                     window.set_visible(true);
@@ -4928,7 +5319,31 @@ fn run() -> Result<()> {
                 "forward" => { let _ = webview.evaluate_script("history.forward()"); }
                 "reload" => { let _ = webview.evaluate_script("location.reload()"); }
                 "print" => { let _ = webview.print(); }
-                "folder" => { let _ = Command::new("open").arg(&layout.support).spawn(); }
+                "folder" => { let _ = Command::new("open").arg(&layout.wiki).spawn(); }
+                "newwiki" => {
+                    if let Err(e) = create_wiki_flow(&layout, &update_proxy, false) {
+                        alert(&format!("The new wiki could not be started.\n\n{e:#}"));
+                    }
+                }
+                "importwiki" => {
+                    if let Err(e) = create_wiki_flow(&layout, &update_proxy, true) {
+                        alert(&format!("The wiki import could not be started.\n\n{e:#}"));
+                    }
+                }
+                "switchwiki" => {
+                    match choose_wiki_profile(&layout) {
+                        Ok(Some(profile)) => {
+                            if let Err(e) = switch_profile(&layout, &profile, port, &mut server, control_flow) {
+                                alert(&format!("{e:#}"));
+                            }
+                        }
+                        Ok(None) => {}
+                        Err(e) => alert(&format!("The wiki chooser could not be opened.\n\n{e:#}")),
+                    }
+                }
+                "wikisfolder" => {
+                    let _ = Command::new("open").arg(layout.support.join("wikis")).spawn();
+                }
                 "backup" => {
                     let l = layout.clone();
                     thread::spawn(move || match backup(&l, "wiki-backup") {
@@ -4993,9 +5408,7 @@ fn run() -> Result<()> {
                         for (m, item) in &lock_items.appearance {
                             item.set_checked(*m == mode);
                         }
-                        let _ = webview.evaluate_script(&format!(
-                            "try{{localStorage.setItem('aw-theme','{mode}');}}catch(e){{}}document.documentElement.setAttribute('data-aw-theme','{mode}');"
-                        ));
+                        let _ = webview.evaluate_script(&format!("document.documentElement.setAttribute('data-aw-theme','{mode}');"));
                     }
                 }
                 id if id.starts_with("idle") => {
@@ -5015,11 +5428,15 @@ fn run() -> Result<()> {
                     thread::spawn(move || verify_flow(&l));
                 }
                 "restore" => {
-                    let p = update_proxy.clone();
-                    thread::spawn(move || restore_flow(&p));
+                    let (l, p) = (layout.clone(), update_proxy.clone());
+                    thread::spawn(move || {
+                        if let Err(e) = restore_flow(&l, &p) {
+                            alert(&format!("The restore could not be started.\n\n{e:#}"));
+                        }
+                    });
                 }
                 "autobackup" => {
-                    let flag = layout.support.join("backup-auto-off");
+                    let flag = layout.profile_root.join("backup-auto-off");
                     if flag.exists() {
                         let _ = fs::remove_file(&flag);
                         backup_item.set_checked(true);
@@ -5059,7 +5476,10 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use super::{app_path, release_asset_sha256_from_json, unique_path};
+    use super::{
+        active_wiki_profile, app_path, profile_session_name, recent_pages_storage_key, release_asset_sha256_from_json, unique_path,
+        validate_wiki_name, wiki_profiles,
+    };
 
     #[test]
     fn unique_path_keeps_existing_backup_intact() {
@@ -5102,5 +5522,71 @@ mod tests {
     fn rejects_release_assets_without_sha256_metadata() {
         let json = r#"{"assets":[{"name":"php.tgz","digest":null}]}"#;
         assert!(release_asset_sha256_from_json(json, "php.tgz").is_err());
+    }
+
+    #[test]
+    fn wiki_names_are_trimmed_and_cannot_escape_profile_directories() {
+        assert_eq!(validate_wiki_name("  Family Archive  ").unwrap(), "Family Archive");
+        assert!(validate_wiki_name("").is_err());
+        assert!(validate_wiki_name("../Outside").is_err());
+        assert!(validate_wiki_name("Family/Archive").is_err());
+        assert!(validate_wiki_name("x".repeat(65).as_str()).is_err());
+    }
+
+    #[test]
+    fn wiki_profiles_use_distinct_dokuwiki_sessions_without_changing_the_default() {
+        assert_eq!(profile_session_name("default").unwrap(), None);
+        assert_ne!(
+            profile_session_name("wiki-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa").unwrap(),
+            profile_session_name("wiki-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb").unwrap()
+        );
+    }
+
+    #[test]
+    fn recent_pages_keep_the_default_key_and_are_namespaced_for_other_wikis() {
+        assert_eq!(recent_pages_storage_key("default"), "archivewiki.recent-pages");
+        assert_eq!(
+            recent_pages_storage_key("wiki-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+            "archivewiki.recent-pages.wiki-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        );
+    }
+
+    #[test]
+    fn profile_catalog_preserves_the_legacy_wiki_and_migrates_its_settings() {
+        let support = std::env::temp_dir().join(format!("archivewiki-profiles-{}", super::random_token()));
+        std::fs::create_dir_all(&support).unwrap();
+        std::fs::write(support.join("backup-auto-off"), "").unwrap();
+        std::fs::write(support.join("last-auto-backup"), "12345").unwrap();
+        let legacy_restore = support.join("restore-previous").join("data");
+        std::fs::create_dir_all(&legacy_restore).unwrap();
+        std::fs::write(legacy_restore.join("page.txt"), "preserve me").unwrap();
+
+        let profiles_root = support.join("wikis");
+        let custom_id = format!("wiki-{}", "a".repeat(32));
+        let custom_root = profiles_root.join(&custom_id);
+        std::fs::create_dir_all(custom_root.join("wiki")).unwrap();
+        std::fs::write(custom_root.join("name"), "Research").unwrap();
+        std::fs::write(custom_root.join("wiki").join("doku.php"), "<?php").unwrap();
+
+        let profiles = wiki_profiles(&support).unwrap();
+        let default = profiles.iter().find(|profile| profile.id == "default").unwrap();
+        assert_eq!(default.wiki, support.join("wiki"));
+        assert!(default.root.join("backup-auto-off").is_file());
+        assert_eq!(std::fs::read_to_string(default.root.join("last-auto-backup")).unwrap(), "12345");
+        assert_eq!(
+            std::fs::read_to_string(default.root.join("restore-previous").join("data").join("page.txt")).unwrap(),
+            "preserve me"
+        );
+        assert!(profiles.iter().any(|profile| profile.id == custom_id && profile.name == "Research"));
+
+        std::fs::remove_file(default.root.join("backup-auto-off")).unwrap();
+        wiki_profiles(&support).unwrap();
+        assert!(!default.root.join("backup-auto-off").exists());
+        std::fs::write(support.join("active-wiki"), &custom_id).unwrap();
+        let active = active_wiki_profile(&support).unwrap();
+        assert_eq!(active.id, custom_id);
+        assert_eq!(active.wiki, custom_root.join("wiki"));
+
+        std::fs::remove_dir_all(support).unwrap();
     }
 }

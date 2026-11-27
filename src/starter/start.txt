@@ -27,3 +27,4 @@ Use **View → Search Archive** (⌘K) to find existing pages. For a page in a s
 ===== Back up your archive =====
 
 Use **File → Back Up & Restore → Back Up Now** to save a copy before big changes. ArchiveWiki also makes daily backups automatically; turn this off or on in the same menu. Keep an extra copy somewhere separate from this Mac.
+To keep separate collections of pages, choose **File → Manage Wikis**. Each wiki has its own pages and backups; switching reopens ArchiveWiki on the selected wiki.
