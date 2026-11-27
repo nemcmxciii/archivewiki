@@ -1,22 +1,20 @@
-====== Portfolio ======
+====== Details for forms ======
 
-Keep the key dates and details you often need for forms and applications.
-
-Use the form to add addresses; copy a record block to add another job or qualification.
+Keep details you are often asked for on forms, such as where you have lived, your work history, and your education. Enter only what you need; optional details can be left blank.
 
 <WRAP aw-portfolio-actions>
 <WRAP aw-portfolio-action>
 [[portfolio:residential|Residential history]]
-//Addresses and dates for applications//
+//Addresses and dates requested on forms//
 </WRAP>
 <WRAP aw-portfolio-action>
 [[portfolio:employment|Employment history]]
-//Employers, roles, and dates//
+//Workplaces, roles, and dates//
 </WRAP>
 <WRAP aw-portfolio-action>
-[[portfolio:credentials|Credentials]]
-//Degrees, licenses, and certifications//
+[[portfolio:credentials|Education and credentials]]
+//Degrees, licenses, and certificates//
 </WRAP>
 </WRAP>
 
-**Privacy:** Keep Social Security, bank, and account numbers out of the wiki. Protect your Mac with FileVault and keep regular backups.
+**Privacy:** These details are stored in your local wiki. Avoid passwords, Social Security numbers, and full bank or account numbers. Keep regular backups.

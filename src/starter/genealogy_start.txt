@@ -1,30 +1,29 @@
-====== Family archive ======
+====== Family history ======
 
-Keep one page for each person, then connect the people you know. You can start with a name and fill in the rest as you find it.
+Start with what you know. Add a person's name now; dates, places, and the rest of the story can come later. Each person has a page of their own, and you can connect people as you learn more.
 
 ===== Add a person =====
 
-Enter a name to create a person page. Dates and places are optional; you can add or change them later.
+Enter a name to create a person page. Dates and places are optional, so it is fine to leave them blank.
 
 {{newperson>}}
 
-===== Family Groups and Pedigree Trees =====
+===== Explore family connections =====
 
-  * [[genealogy:families:start|Family Groups]] — fill out a family sheet with parents, marriage details, children, and sources.
-  * [[genealogy:chart|Pedigree Trees]] — trace a person’s parents and earlier ancestors one generation at a time.
-  * [[genealogy:chart_blank|Print a blank pedigree tree]] — fill it in by hand.
+  * [[genealogy:families:start|Create a family group]] — bring parents, partners, children, and sources together on one sheet.
+  * [[genealogy:chart|Build a family tree]] — follow parents and earlier generations one step at a time.
+  * [[genealogy:chart_blank|Print a blank family tree]] — fill it in by hand.
 
 ===== Find a person =====
 
-Search by name, date, or place. Open a person's page to read their details, family links, sources, and research notes.
+Search by name, date, or place. Open a person's page to see their details, family connections, sources, and notes.
 
 {{people>}}
 
-===== How it works =====
+===== Helpful to know =====
 
-  * Each person has their own page. Begin with only a name; details can be added whenever you are ready.
-  * The ancestor chart guides you through parents, grandparents, and earlier generations. You can save partial work and return later.
-  * Record sources on each person’s page so you can return to the records behind your family history.
-  * The tree view is useful for seeing or printing a family at a glance. Living people are marked in the chart; the redacted tree view can hide their names.
+  * You can add details or correct them later. Nothing needs to be complete before you begin.
+  * Add sources to remember where a detail came from and to help you find the original record again.
+  * Family trees focus on parents and ancestors. Living relatives are marked in the tree, and the redacted view hides their names.
 
-Your family pages and research stay in this local archive.
+Your family pages and research are stored in this wiki on this Mac.

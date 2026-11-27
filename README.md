@@ -176,10 +176,11 @@ flow described above. This is a guard against other software on your Mac reachin
 access to your account.
 
 ## Starter structure
-On first run (or the first launch after updating to this version) ArchiveWiki adds, only where nothing exists yet: a start page and
-sidebar; Journal, Genealogy, Portfolio (residential / employment / credentials tables) and Reference sections;
-page templates for Genealogy and Journal (new pages in those sections start from them); and a friendlier "page not found" message.
-Edit or delete any of it freely: nothing is recreated or overwritten afterwards.
+On first run ArchiveWiki adds, only where nothing exists yet: a start page and sidebar; Journal, Family history, Details for forms
+(residential / employment / credentials tables) and Reference sections;
+page templates for Family history and Journal (new pages in those sections start from them); and a friendlier "page not found" message.
+ArchiveWiki refreshes a starter page only when it still matches the previous built-in version, so your edits are preserved.
+Missing starter pages may be added when a future release updates the starter content.
 When upgrading from an earlier layout (Inbox, People, Records, Field Manual), pages from the old layout are removed only if you never
 edited them; anything you changed stays where it is.
 

@@ -1,0 +1,13 @@
+====== Family Groups ======
+
+A Family Group sheet keeps the people in one household together. Enter the parent names, marriage or partnership details, children, and sources you have. A name matching an existing person page will connect to it; a new name creates a person page. You can begin with names and fill in the rest later.
+
+===== Create a family group =====
+
+{{familygroup>new}}
+
+===== Your family groups =====
+
+Open a saved sheet to review or update it. The people on each sheet are linked to their individual pages and to their Pedigree Trees.
+
+{{families>}}

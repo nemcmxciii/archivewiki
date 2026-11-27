@@ -2,7 +2,7 @@
 
   * [[start|Home]]
   * [[journal:start|Journal]]
-  * [[genealogy:start|Genealogy]]
-  * [[portfolio:start|Portfolio]]
+  * [[genealogy:start|Family history]]
+  * [[portfolio:start|Details for forms]]
   * [[reference:start|Reference]]
   * [[bible:start|WEB Bible]]

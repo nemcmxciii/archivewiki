@@ -1,3 +1,5 @@
 ====== Reference ======
 
-Sources, links, documents and anything you want to be able to look up again.
+Keep useful information you want to find again: links, instructions, reading lists, research sources, or notes from a project.
+
+Start a page from **Home** using **Find or add a page**. Give it a clear title and write a few words about what it is and where you found it. There is no required format.

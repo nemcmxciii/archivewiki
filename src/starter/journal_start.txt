@@ -1,22 +1,22 @@
 ====== Journal ======
 
-Capture a longer reflection or jot down a quick thought. Your entries stay in your private archive and are searchable.
+Use your Journal for thoughts, plans, and moments you want to remember. A quick note or an unfinished entry is enough; you can come back to it later.
 
 <WRAP aw-journal-actions>
 <WRAP aw-journal-action>
 [[archivewiki:action_today_journal|Today's Journal Entry]]
-//Open today's dated page//
+//Open today's dated page.//
 </WRAP>
 <WRAP aw-journal-action>
 [[archivewiki:action_new_note|New Note]]
-//Capture a quick thought//
+//Save a thought on a page dated with today's date and time.//
 </WRAP>
 </WRAP>
 
-Use **⇧⌘J** for today's entry, **⇧⌘N** for a quick note, or **⌘K** to search your archive.
+If you prefer keyboard shortcuts, use **⇧⌘J** for today's entry or **⇧⌘N** for a quick note. To find something later, choose **View → Search Archive** (⌘K).
 
 ===== Recent entries =====
 
-New notes and dated entries appear here automatically, with the newest first.
+Your latest journal entries and notes appear here automatically.
 
 {{topic>journal?journal&sortkey=cdate&sortorder=descending}}

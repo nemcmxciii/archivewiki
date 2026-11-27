@@ -115,4 +115,29 @@ mod tests {
         assert_eq!(fs::read_to_string(w.join("data/pages/start.txt")).unwrap(), "mine");
         assert_eq!(fs::read_to_string(w.join("data/pages/new/a.txt")).unwrap(), "a");
     }
+
+    #[test]
+    fn replace_if_unchanged_refreshes_pristine_pages_but_preserves_edits() {
+        let w = temp("replace");
+        fs::write(w.join("data/pages/start.txt"), "old shipped page\r\n").unwrap();
+        fs::write(w.join("data/pages/journal.txt"), "my edited page\n").unwrap();
+        let updates = [
+            ("data/pages/start.txt", "old shipped page\n", "new page\n"),
+            (
+                "data/pages/journal.txt",
+                "old shipped journal\n",
+                "new journal\n",
+            ),
+        ];
+
+        assert_eq!(replace_if_unchanged(&w, &updates), 1);
+        assert_eq!(
+            fs::read_to_string(w.join("data/pages/start.txt")).unwrap(),
+            "new page\n"
+        );
+        assert_eq!(
+            fs::read_to_string(w.join("data/pages/journal.txt")).unwrap(),
+            "my edited page\n"
+        );
+    }
 }
