@@ -18,10 +18,27 @@ use dokuwiki\Extension\Plugin;
 class helper_plugin_awgenealogy extends Plugin
 {
     /** canonical field order */
-    const KEYS = ['name', 'sex', 'born', 'birthplace', 'died', 'deathplace', 'father', 'mother', 'living'];
+    const KEYS = ['name', 'sex', 'born', 'birthplace', 'born_source', 'birthplace_source', 'died', 'deathplace', 'died_source', 'deathplace_source', 'father', 'mother', 'living'];
 
     /** fields the chart form may change */
-    const EDITABLE = ['name', 'born', 'birthplace', 'died', 'deathplace'];
+    const EDITABLE = ['name', 'born', 'birthplace', 'born_source', 'birthplace_source', 'died', 'deathplace', 'died_source', 'deathplace_source'];
+
+    const CHILD_RELATIONSHIPS = [
+        'biological' => 'Biological',
+        'adoptive' => 'Adoptive',
+        'step' => 'Stepchild',
+        'foster' => 'Foster',
+        'guardian' => 'Guardian',
+        'other' => 'Other or uncertain',
+    ];
+
+    const UNION_TYPES = [
+        'marriage' => 'Marriage',
+        'civil_partnership' => 'Civil partnership',
+        'domestic_partnership' => 'Domestic partnership',
+        'co_parenting' => 'Co-parenting',
+        'other' => 'Other or unknown',
+    ];
 
     /** namespace that holds people */
     public function peopleNamespace()
@@ -118,7 +135,7 @@ class helper_plugin_awgenealogy extends Plugin
         $fields = array_merge(['name' => $name, 'living' => 'yes'], $fields);
         return "====== $name ======\n\n" . $this->renderBlock($fields) .
             "\n\n===== Family and relationships =====\n\nRecord spouses, children, siblings, and other family links here. The ancestor chart below follows parents.\n\n" .
-            "===== Life story =====\n\n===== Timeline =====\n\n===== Sources =====\n\nAdd one source per entry. Include the record or publication, date, archive or URL, and any page or certificate number.\n\n" .
+            "===== Life story =====\n\n===== Timeline =====\n\n===== Sources =====\n\nUse the person form to attach a source citation to each birth or death fact. Add other sources here with the record or publication, date, archive or URL, and page or certificate number.\n\n" .
             "===== Research notes =====\n\n===== Ancestor chart =====\n\n{{pedigree>$id}}\n";
     }
 
@@ -252,6 +269,10 @@ class helper_plugin_awgenealogy extends Plugin
                 'birthplace' => $fields['birthplace'] ?? '',
                 'died' => $fields['died'] ?? '',
                 'deathplace' => $fields['deathplace'] ?? '',
+                'born_source' => $fields['born_source'] ?? '',
+                'birthplace_source' => $fields['birthplace_source'] ?? '',
+                'died_source' => $fields['died_source'] ?? '',
+                'deathplace_source' => $fields['deathplace_source'] ?? '',
                 'sex' => $fields['sex'] ?? '',
             ];
         }
@@ -293,6 +314,51 @@ class helper_plugin_awgenealogy extends Plugin
         return implode(', ', $links);
     }
 
+    public function childRelationshipLabel($value)
+    {
+        return self::CHILD_RELATIONSHIPS[$value] ?? self::CHILD_RELATIONSHIPS['other'];
+    }
+
+    public function unionTypeLabel($value)
+    {
+        return self::UNION_TYPES[$value] ?? '';
+    }
+
+    private function familyChildEntries(array $fields, $familyId)
+    {
+        $children = [];
+        foreach ($fields as $key => $ref) {
+            if (!preg_match('/^child_([0-9]+)$/', $key, $matches)) continue;
+            $id = $this->resolveRef($ref, $familyId);
+            if ($id === '') continue;
+            $relationship = $fields['child_' . $matches[1] . '_relationship'] ?? 'biological';
+            $children[] = [
+                'id' => $id,
+                'relationship' => $relationship,
+                'label' => self::CHILD_RELATIONSHIPS[$relationship] ?? self::CHILD_RELATIONSHIPS['other'],
+            ];
+        }
+        return array_values($children);
+    }
+
+    private function familyChildLinks(array $children)
+    {
+        $links = [];
+        foreach ($children as $child) {
+            $person = $this->getPerson($child['id']);
+            if ($person && !empty($person['private'])) {
+                $link = 'Private';
+            } elseif (!$person) {
+                $link = hsc($this->titleFromId($child['id'])) . ' (page not found)';
+            } else {
+                $name = $person['fields']['name'] ?? $this->titleFromId($child['id']);
+                $link = '<a href="' . hsc(wl($child['id'])) . '">' . hsc($name) . '</a>';
+            }
+            $links[] = $link . ' <span class="awg-family-relationship">' . hsc($child['label']) . '</span>';
+        }
+        return implode(', ', $links);
+    }
+
     /** Render family-group connections for a person without requiring edits to the person page. */
     public function familyConnectionsHtml($personId)
     {
@@ -307,11 +373,14 @@ class helper_plugin_awgenealogy extends Plugin
                 $id = $this->resolveRef($fields[$role] ?? '', $familyId);
                 if ($id !== '') $parents[] = $id;
             }
-            $children = [];
-            foreach ($fields as $key => $ref) {
-                if (!preg_match('/^child_[0-9]+$/', $key)) continue;
-                $id = $this->resolveRef($ref, $familyId);
-                if ($id !== '') $children[] = $id;
+            $childEntries = $this->familyChildEntries($fields, $familyId);
+            $children = array_column($childEntries, 'id');
+            $relationship = '';
+            foreach ($childEntries as $childEntry) {
+                if ($childEntry['id'] === $personId) {
+                    $relationship = $childEntry['label'];
+                    break;
+                }
             }
             $parents = array_values(array_unique($parents));
             $children = array_values(array_unique($children));
@@ -326,11 +395,17 @@ class helper_plugin_awgenealogy extends Plugin
                 'other_parents' => array_values(array_diff($parents, [$personId])),
                 'parents' => $parents,
                 'children' => $children,
+                'child_entries' => $childEntries,
                 'siblings' => array_values(array_diff($children, [$personId])),
+                'relationship' => $relationship,
+                'union_type' => $fields['union_type'] ?? '',
+                'union_source' => $fields['union_source'] ?? '',
+                'union_date' => $fields['marriage_date'] ?? '',
+                'union_place' => $fields['marriage_place'] ?? '',
             ];
         }
 
-        $html = '<section class="awg-family-connections"><h3>Family connections</h3>';
+        $html = $this->genealogyNavHtml('people') . '<section class="awg-family-connections"><h3>Family connections</h3>';
         if (!$families) {
             $html .= '<p>No family groups are linked to this person yet. <a href="' .
                 hsc(wl('genealogy:families:start')) . '">Create a family group</a> to add parents, partners, or children.</p></section>';
@@ -345,14 +420,21 @@ class helper_plugin_awgenealogy extends Plugin
             if ($family['is_parent']) $roles[] = 'Parent or partner';
             if ($family['is_child']) $roles[] = 'Child';
             $html .= hsc(implode(' · ', $roles)) . '</p><dl>';
+            $unionType = $this->unionTypeLabel($family['union_type']);
+            if ($unionType !== '') {
+                $unionDetails = array_filter([$unionType, $family['union_date'], $family['union_place']]);
+                $html .= '<dt>Partnership</dt><dd>' . hsc(implode(' · ', $unionDetails)) . '</dd>';
+            }
+            if ($family['union_source'] !== '') $html .= '<dt>Partnership source</dt><dd>' . hsc($family['union_source']) . '</dd>';
             if ($family['is_parent'] && $family['other_parents']) {
                 $html .= '<dt>Other parent or partner</dt><dd>' . $this->familyPeopleLinks($family['other_parents']) . '</dd>';
             }
             if ($family['is_parent'] && $family['children']) {
-                $html .= '<dt>Children</dt><dd>' . $this->familyPeopleLinks($family['children']) . '</dd>';
+                $html .= '<dt>Children</dt><dd>' . $this->familyChildLinks($family['child_entries']) . '</dd>';
             }
             if ($family['is_child'] && $family['parents']) {
                 $html .= '<dt>Parents</dt><dd>' . $this->familyPeopleLinks($family['parents']) . '</dd>';
+                if ($family['relationship'] !== '') $html .= '<dt>Relationship</dt><dd>' . hsc($family['relationship']) . '</dd>';
             }
             if ($family['is_child'] && $family['siblings']) {
                 $html .= '<dt>Siblings</dt><dd>' . $this->familyPeopleLinks($family['siblings']) . '</dd>';
@@ -362,10 +444,177 @@ class helper_plugin_awgenealogy extends Plugin
         return $html . '</ul></section>';
     }
 
+    public function descendantsHtml($rootId, $maxGenerations = 5, $redact = false)
+    {
+        $rootId = cleanID($rootId);
+        $root = $this->getPerson($rootId);
+        if (!$root) return '<p class="awg-note">That person page does not exist.</p>';
+        if (!empty($root['private'])) return '<section class="awg-descendants"><p>Private person.</p></section>';
+
+        $maxGenerations = max(2, min(6, (int)$maxGenerations));
+        $familiesByParent = [];
+        $biologicalChildren = [];
+        foreach ($this->allFamilies() as $familyId => $title) {
+            $block = $this->findFamilyBlock(rawWiki($familyId));
+            if (!$block) continue;
+            $fields = $block['fields'];
+            $parents = [];
+            foreach (['father', 'mother'] as $role) {
+                $id = $this->resolveRef($fields[$role] ?? '', $familyId);
+                if ($id !== '') $parents[] = $id;
+            }
+            $parents = array_values(array_unique($parents));
+            $children = $this->familyChildEntries($fields, $familyId);
+            if (!$parents || !$children) continue;
+            $family = [
+                'id' => $familyId,
+                'parents' => $parents,
+                'children' => $children,
+                'union_type' => $this->unionTypeLabel($fields['union_type'] ?? ''),
+                'date' => $fields['marriage_date'] ?? '',
+                'place' => $fields['marriage_place'] ?? '',
+            ];
+            foreach ($parents as $parentId) {
+                $familiesByParent[$parentId][] = $family;
+                foreach ($children as $child) {
+                    if ($child['relationship'] === 'biological') {
+                        $biologicalChildren[$parentId][$child['id']] = true;
+                    }
+                }
+            }
+        }
+
+        $pageChildren = [];
+        foreach ($this->allPeople() as $childId => $name) {
+            $person = $this->getPerson($childId);
+            if (!$person || !empty($person['private'])) continue;
+            foreach (['father', 'mother'] as $role) {
+                $parentId = $this->resolveRef($person['fields'][$role] ?? '', $childId);
+                if ($parentId === '' || isset($biologicalChildren[$parentId][$childId])) continue;
+                $pageChildren[$parentId][$childId] = [
+                    'id' => $childId,
+                    'relationship' => 'biological',
+                    'label' => self::CHILD_RELATIONSHIPS['biological'],
+                ];
+            }
+        }
+
+        $personHtml = function ($id) use ($redact) {
+            $person = $this->getPerson($id);
+            if ($person && !empty($person['private'])) return 'Private';
+            if (!$person) return hsc($this->titleFromId($id)) . ' (page not found)';
+            $fields = $person['fields'];
+            if ($redact && in_array(strtolower(trim($fields['living'] ?? '')), ['yes', 'y', 'true', '1'], true)) {
+                return '<span class="awg-desc-redacted">Living</span>';
+            }
+            return '<a href="' . hsc(wl($id)) . '">' . hsc($fields['name'] ?? $this->titleFromId($id)) . '</a>';
+        };
+
+        $nodeCount = 0;
+        $renderBranch = function ($parentId, $generation, array $path, array $familyPath = []) use (
+            &$renderBranch, &$nodeCount, $maxGenerations, $familiesByParent, $pageChildren, $personHtml
+        ) {
+            if ($generation >= $maxGenerations || $nodeCount >= 500) return '';
+            $html = '';
+            $shown = [];
+            foreach ($familiesByParent[$parentId] ?? [] as $family) {
+                if ($nodeCount >= 500) break;
+                if (isset($familyPath[$family['id']])) continue;
+                $nextFamilyPath = $familyPath;
+                $nextFamilyPath[$family['id']] = true;
+                $partners = array_values(array_diff($family['parents'], [$parentId]));
+                $html .= '<li class="awg-desc-family"><div class="awg-desc-family-meta"><strong>Family group</strong>';
+                if ($partners) $html .= '<span>with ' . implode(', ', array_map($personHtml, $partners)) . '</span>';
+                if ($family['union_type'] !== '') $html .= '<span>' . hsc($family['union_type']) . '</span>';
+                $dates = trim(implode(' · ', array_filter([$family['date'], $family['place']])));
+                if ($dates !== '') $html .= '<span>' . hsc($dates) . '</span>';
+                $html .= '</div><ul class="awg-desc-children">';
+                foreach ($family['children'] as $child) {
+                    if ($nodeCount >= 500) break;
+                    $nodeCount++;
+                    $id = $child['id'];
+                    $person = $this->getPerson($id);
+                    $html .= '<li>' . $personHtml($id) . ' <span class="awg-family-relationship">' . hsc($child['label']) . '</span>';
+                    if ($person && empty($person['private']) && !isset($path[$id])) {
+                        $nextPath = $path;
+                        $nextPath[$id] = true;
+                        $descendants = $renderBranch($id, $generation + 1, $nextPath, $nextFamilyPath);
+                        if ($descendants !== '') $html .= '<ul class="awg-desc-families">' . $descendants . '</ul>';
+                    } elseif (isset($path[$id])) {
+                        $html .= ' <span class="awg-desc-cycle">Repeated link; further expansion stopped.</span>';
+                    }
+                    $html .= '</li>';
+                }
+                $html .= '</ul></li>';
+            }
+            foreach ($pageChildren[$parentId] ?? [] as $child) {
+                if ($nodeCount >= 500) break;
+                if (isset($shown[$child['id']])) continue;
+                $shown[$child['id']] = true;
+                $nodeCount++;
+                $id = $child['id'];
+                $html .= '<li class="awg-desc-family"><div class="awg-desc-family-meta"><strong>Ancestor chart link</strong></div>' .
+                    '<ul class="awg-desc-children"><li>' . $personHtml($id) . ' <span class="awg-family-relationship">' .
+                    hsc($child['label']) . '</span>';
+                if (!isset($path[$id])) {
+                    $nextPath = $path;
+                    $nextPath[$id] = true;
+                    $descendants = $renderBranch($id, $generation + 1, $nextPath, $familyPath);
+                    if ($descendants !== '') $html .= '<ul class="awg-desc-families">' . $descendants . '</ul>';
+                }
+                $html .= '</li></ul></li>';
+            }
+            return $html;
+        };
+
+        $rootLiving = in_array(strtolower(trim($root['fields']['living'] ?? '')), ['yes', 'y', 'true', '1'], true);
+        $rootName = ($redact && $rootLiving) ? 'Living' : ($root['fields']['name'] ?? $this->titleFromId($rootId));
+        $path = [$rootId => true];
+        $branches = $renderBranch($rootId, 1, $path);
+        $html = '<section class="awg-descendants"><h3>Descendants of ' . hsc($rootName) . '</h3>' .
+            '<p class="awg-desc-intro">Family Group relationships and ancestor-chart parent links are shown separately. Up to ' .
+            $maxGenerations . ' generations are included.</p>';
+        if ($branches === '') {
+            $html .= '<p>No linked descendants were found. Add children on a Family Group sheet or link parents on a person’s ancestor chart.</p>';
+        } else {
+            $html .= '<ul class="awg-desc-families">' . $branches . '</ul>';
+            if ($nodeCount >= 500) $html .= '<p class="awg-desc-limit">The view reached its safety limit. Narrow the tree or view fewer generations.</p>';
+        }
+        return $html . '</section>';
+    }
+
     private function familyInput($name, $label, $value = '', $placeholder = '')
     {
         return '<label class="awg-family-field"><span>' . hsc($label) . '</span><input type="text" name="' .
             hsc($name) . '" value="' . hsc($value) . '" placeholder="' . hsc($placeholder) . '" /></label>';
+    }
+
+    private function familySelect($name, $label, array $options, $value = '')
+    {
+        $html = '<label class="awg-family-field"><span>' . hsc($label) . '</span><select name="' . hsc($name) . '">';
+        foreach ($options as $option => $text) {
+            $selected = $option === $value ? ' selected="selected"' : '';
+            $html .= '<option value="' . hsc($option) . '"' . $selected . '>' . hsc($text) . '</option>';
+        }
+        return $html . '</select></label>';
+    }
+
+    public function genealogyNavHtml($current = '')
+    {
+        $items = [
+            'people' => ['genealogy:start', 'People'],
+            'families' => ['genealogy:families:start', 'Family Groups'],
+            'ancestors' => ['genealogy:chart', 'Ancestor chart'],
+        ];
+        $html = '<nav class="awg-genealogy-nav" aria-label="Genealogy">';
+        foreach ($items as $key => [$id, $label]) {
+            if ($key === $current) {
+                $html .= '<span aria-current="page">' . hsc($label) . '</span>';
+            } else {
+                $html .= '<a href="' . hsc(wl($id)) . '">' . hsc($label) . '</a>';
+            }
+        }
+        return $html . '</nav>';
     }
 
     private function familyTextarea($name, $label, $value = '', $placeholder = '')
@@ -373,6 +622,20 @@ class helper_plugin_awgenealogy extends Plugin
         $value = str_replace('\n', "\n", $value);
         return '<label class="awg-family-field"><span>' . hsc($label) . '</span><textarea name="' .
             hsc($name) . '" rows="4" placeholder="' . hsc($placeholder) . '">' . hsc($value) . '</textarea></label>';
+    }
+
+    private function citationFields($prefix, array $fields)
+    {
+        $html = '<details class="awg-fact-sources"><summary>Attach sources to dates and places (optional)</summary>';
+        foreach ([
+            'born_source' => 'Birth date source',
+            'birthplace_source' => 'Birthplace source',
+            'died_source' => 'Death date source',
+            'deathplace_source' => 'Place of death source',
+        ] as $key => $label) {
+            $html .= $this->familyInput($prefix . '[' . $key . ']', $label, $fields[$key] ?? '', 'Record, archive, page number, or URL');
+        }
+        return $html . '</details>';
     }
 
     private function personLookupHtml($name, $idName, $label, $value, $id, $hint, $linkOnly = false, $disabled = false)
@@ -388,7 +651,7 @@ class helper_plugin_awgenealogy extends Plugin
             '<button type="button" class="button awg-person-clear" hidden' . $disabledAttr . '>Clear person selection</button></div>';
     }
 
-    private function familyMemberInput($role, $label, $ref, $fromId)
+    private function familyMemberInput($role, $label, $ref, $fromId, $chartRole)
     {
         $id = $this->resolveRef($ref, $fromId);
         $person = $id !== '' ? $this->getPerson($id) : null;
@@ -402,16 +665,23 @@ class helper_plugin_awgenealogy extends Plugin
                 $id,
                 'Choose a match to link an existing person. Otherwise, a new person page will be created when you save.'
             ) .
+            $this->familySelect(
+                'parent_roles[' . $role . ']',
+                'How to show this person in ancestor charts',
+                ['father' => 'Father', 'mother' => 'Mother', 'none' => 'Family connection only'],
+                $chartRole
+            ) .
             '<div class="awg-pair">' .
             $this->familyInput($role . '[born]', 'Born', $f['born'] ?? '', 'Year or date') .
             $this->familyInput($role . '[birthplace]', 'Birthplace', $f['birthplace'] ?? '') . '</div>' .
             '<div class="awg-pair">' .
             $this->familyInput($role . '[died]', 'Died', $f['died'] ?? '', 'Year or date') .
-            $this->familyInput($role . '[deathplace]', 'Place of death', $f['deathplace'] ?? '') . '</div></fieldset>';
+            $this->familyInput($role . '[deathplace]', 'Place of death', $f['deathplace'] ?? '') . '</div>' .
+            $this->citationFields($role, $f) . '</fieldset>';
         return $html;
     }
 
-    private function familyChildInput($index, $ref, $fromId)
+    private function familyChildInput($index, $ref, $fromId, $relationship = 'biological')
     {
         $id = $this->resolveRef($ref, $fromId);
         $person = $id !== '' ? $this->getPerson($id) : null;
@@ -424,13 +694,20 @@ class helper_plugin_awgenealogy extends Plugin
                 $f['name'] ?? '',
                 $id,
                 'Choose an existing person to link them, or enter a name to create a person page when you save.'
-            ) . $this->familyInput('children[' . $index . '][sex]', 'Sex (optional)', $f['sex'] ?? '', 'For example, F or M') .
+            ) . $this->familySelect(
+                'children[' . $index . '][relationship]',
+                'Child’s relationship to these people',
+                self::CHILD_RELATIONSHIPS,
+                $relationship
+            ) .
+            $this->familyInput('children[' . $index . '][sex]', 'Sex (optional)', $f['sex'] ?? '', 'For example, F or M') .
             '<div class="awg-pair">' .
             $this->familyInput('children[' . $index . '][born]', 'Born', $f['born'] ?? '', 'Year or date') .
             $this->familyInput('children[' . $index . '][birthplace]', 'Birthplace', $f['birthplace'] ?? '') . '</div>' .
             '<div class="awg-pair">' .
             $this->familyInput('children[' . $index . '][died]', 'Died', $f['died'] ?? '', 'Year or date') .
             $this->familyInput('children[' . $index . '][deathplace]', 'Place of death', $f['deathplace'] ?? '') . '</div>' .
+            $this->citationFields('children[' . $index . ']', $f) .
             '<button type="button" class="button awg-remove-child">Remove child</button></div>';
         return $html;
     }
@@ -439,7 +716,10 @@ class helper_plugin_awgenealogy extends Plugin
     {
         $block = $isNew ? null : $this->findFamilyBlock(rawWiki($pageId));
         $f = $block['fields'] ?? [];
-        $html = '<div class="awg-family-editor" data-people="' . $this->personPickerData(true) . '"><p class="awg-family-intro">Enter the parents or partners and children for one family. Choose an existing person when possible; you can add missing details or return to this sheet later.</p>' .
+        $parent1Role = $f['parent1_role'] ?? 'father';
+        $parent2Role = $f['parent2_role'] ?? 'mother';
+        $html = $this->genealogyNavHtml('families') .
+            '<div class="awg-family-editor" data-people="' . $this->personPickerData(true) . '"><p class="awg-family-intro">Enter up to two parents or partners and their children. Choose an existing person when possible; you can add missing details or return to this sheet later.</p>' .
             '<form class="awg-family-form" method="post" action="#">' .
             '<input type="hidden" name="call" value="awgenealogy" />' .
             '<input type="hidden" name="mode" value="' . ($isNew ? 'newfamily' : 'savefamily') . '" />' .
@@ -447,20 +727,32 @@ class helper_plugin_awgenealogy extends Plugin
             '<input type="hidden" name="sectok" value="' . hsc(getSecurityToken()) . '" />' .
             '<div class="awg-family-title">' . $this->familyInput('title', 'Family group name', $f['title'] ?? '', 'For example, Doe family') . '</div>' .
             '<div class="awg-family-parents">' .
-            $this->familyMemberInput('father', 'Father / parent 1', $f['father'] ?? '', $pageId) .
-            $this->familyMemberInput('mother', 'Mother / parent 2', $f['mother'] ?? '', $pageId) . '</div>' .
-            '<fieldset class="awg-family-marriage"><legend>Marriage or partnership (optional)</legend><div class="awg-pair">' .
-            $this->familyInput('marriage_date', 'Date', $f['marriage_date'] ?? '', 'Year or date') .
-            $this->familyInput('marriage_place', 'Place', $f['marriage_place'] ?? '') . '</div></fieldset>' .
+            $this->familyMemberInput('father', 'Parent or partner 1', $f['father'] ?? '', $pageId, $parent1Role) .
+            $this->familyMemberInput('mother', 'Parent or partner 2', $f['mother'] ?? '', $pageId, $parent2Role) . '</div>' .
+            '<fieldset class="awg-family-marriage"><legend>Marriage or partnership (optional)</legend>' .
+            $this->familySelect('union_type', 'Relationship type', ['' => 'Not specified'] + self::UNION_TYPES, $f['union_type'] ?? '') .
+            '<div class="awg-pair">' . $this->familyInput('marriage_date', 'Date', $f['marriage_date'] ?? '', 'Year or date') .
+            $this->familyInput('marriage_place', 'Place', $f['marriage_place'] ?? '') . '</div>' .
+            $this->familyInput('union_source', 'Relationship source', $f['union_source'] ?? '', 'Record, archive, page number, or URL') .
+            '</fieldset>' .
+            '<p class="awg-family-hint">Only biological relationships are added to the ancestor chart. Existing father/mother links on person pages are not removed when this family sheet changes.</p>' .
             '<fieldset class="awg-family-children"><legend>Children</legend><div class="awg-child-rows">';
         $children = [];
         foreach ($f as $key => $value) {
-            if (preg_match('/^child_([0-9]+)$/', $key, $m)) $children[(int)$m[1]] = $value;
+            if (preg_match('/^child_([0-9]+)$/', $key, $m)) {
+                $number = (int)$m[1];
+                $children[$number] = [
+                    'ref' => $value,
+                    'relationship' => $f['child_' . $number . '_relationship'] ?? 'biological',
+                ];
+            }
         }
-        if (!$children) $children = [1 => ''];
+        if (!$children) $children = [1 => ['ref' => '', 'relationship' => 'biological']];
         ksort($children);
         $index = 0;
-        foreach ($children as $ref) $html .= $this->familyChildInput($index++, $ref, $pageId);
+        foreach ($children as $child) {
+            $html .= $this->familyChildInput($index++, $child['ref'], $pageId, $child['relationship']);
+        }
         $html .= '</div><button type="button" class="button awg-add-child">+ Add another child (up to 20)</button></fieldset>' .
             '<fieldset class="awg-family-sources"><legend>Sources and notes</legend>' .
             $this->familyTextarea('sources', 'Sources', $f['sources'] ?? '', 'Add one source per line: record, date, archive or URL, and page number') .
@@ -620,6 +912,11 @@ class helper_plugin_awgenealogy extends Plugin
         }
         $html .= '<div class="awg-pair">' . $in('born', 'Born', $f['born'] ?? '') . $in('birthplace', 'Birthplace', $f['birthplace'] ?? '') . '</div>';
         $html .= '<div class="awg-pair">' . $in('died', 'Died', $f['died'] ?? '') . $in('deathplace', 'Place of death', $f['deathplace'] ?? '') . '</div>';
+        $html .= '<details class="awg-fact-sources"><summary>Attach sources to dates and places (optional)</summary>' .
+            $in('born_source', 'Birth date source', $f['born_source'] ?? '') .
+            $in('birthplace_source', 'Birthplace source', $f['birthplace_source'] ?? '') .
+            $in('died_source', 'Death date source', $f['died_source'] ?? '') .
+            $in('deathplace_source', 'Place of death source', $f['deathplace_source'] ?? '') . '</details>';
         $html .= '<div class="awg-foot"><label class="awg-living"><input type="hidden" name="' . $name . '[living]" value="0"' . $dis . ' />' .
             '<input type="checkbox" name="' . $name . '[living]" value="1"' . ($living ? ' checked="checked"' : '') . ($canEdit ? '' : ' disabled="disabled"') . $dis . ' /> Living</label>';
         if ($id !== '') $html .= ' <a class="awg-open" href="' . wl($id) . '">Open page</a>';
@@ -630,10 +927,12 @@ class helper_plugin_awgenealogy extends Plugin
     public function viewSwitch($pageId, $current, array $extra = [])
     {
         $link = function ($label, $view) use ($pageId, $current, $extra) {
-            if ($view === $current) return '<b>' . $label . '</b>';
+            if ($view === $current) return '<span aria-current="page">' . hsc($label) . '</span>';
             return '<a href="' . wl($pageId, $extra + ['awgview' => $view], false, '&amp;') . '">' . $label . '</a>';
         };
-        return '<div class="awg-views">' . $link('Form', 'form') . ' · ' . $link('Tree', 'tree') . '</div>';
+        $nav = ($pageId === 'genealogy:chart') ? $this->genealogyNavHtml('ancestors') : '';
+        return $nav . '<nav class="awg-views" aria-label="Ancestor views">' .
+            $link('Form', 'form') . $link('Ancestor tree', 'tree') . $link('Descendants', 'descendants') . '</nav>';
     }
 
     public function formHtml($rootId, $gens, $pageId, array $extra = [])
@@ -674,10 +973,10 @@ class helper_plugin_awgenealogy extends Plugin
             if ($this->findBlock(rawWiki($id))) $people[$id] = $name;
         }
         if (!$people) {
-            return '<p class="awg-note">No people have been added yet. Start at the <a href="' . hsc(wl('genealogy:start')) .
+            return $this->genealogyNavHtml('ancestors') . '<p class="awg-note">No people have been added yet. Start at the <a href="' . hsc(wl('genealogy:start')) .
                 '">Genealogy page</a> to add the first person.</p>';
         }
-        $html = '<form class="awg-picker" method="get" action="' . script() . '">' .
+        $html = $this->genealogyNavHtml('ancestors') . '<form class="awg-picker" method="get" action="' . script() . '">' .
             '<input type="hidden" name="id" value="' . hsc($pageId) . '" />' .
             '<label>Show the chart for <select name="root">';
         foreach ($people as $id => $name) $html .= '<option value="' . hsc($id) . '">' . hsc($name) . '</option>';

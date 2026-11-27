@@ -56,7 +56,7 @@ class action_plugin_awgenealogy extends ActionPlugin
 
         $values = [];
         foreach (helper_plugin_awgenealogy::EDITABLE as $k) {
-            if ($INPUT->post->has($k)) $values[$k] = $h->cleanValue($INPUT->post->str($k));
+            if ($INPUT->post->has($k)) $values[$k] = $h->cleanValue($INPUT->post->str($k), strpos($k, '_source') !== false ? 500 : 200);
         }
 
         if ($mode === 'saveform') return $this->saveForm($h, $id);
@@ -104,8 +104,8 @@ class action_plugin_awgenealogy extends ActionPlugin
         if ($name === '') return $this->reply(false, 'Enter a name to create the person page.');
 
         $values = [];
-        foreach (['born', 'birthplace', 'died', 'deathplace'] as $key) {
-            $values[$key] = $h->cleanValue($INPUT->post->str($key));
+        foreach (['born', 'birthplace', 'born_source', 'birthplace_source', 'died', 'deathplace', 'died_source', 'deathplace_source'] as $key) {
+            $values[$key] = $h->cleanValue($INPUT->post->str($key), strpos($key, '_source') !== false ? 500 : 200);
         }
         $baseName = str_replace(':', ' ', $name);
         $base = cleanID('genealogy:' . $baseName);
@@ -124,7 +124,7 @@ class action_plugin_awgenealogy extends ActionPlugin
         $name = $h->cleanValue($input['name'] ?? '', 120);
         $explicitId = cleanID($input['id'] ?? '');
         if ($name === '' && $explicitId === '') {
-            foreach (['born', 'birthplace', 'died', 'deathplace', 'sex'] as $key) {
+            foreach (['born', 'birthplace', 'born_source', 'birthplace_source', 'died', 'deathplace', 'died_source', 'deathplace_source', 'sex'] as $key) {
                 if ($h->cleanValue($input[$key] ?? '') !== '') return ['error' => 'Enter a name for the person or clear the other fields.'];
             }
             return null;
@@ -138,6 +138,9 @@ class action_plugin_awgenealogy extends ActionPlugin
             'died' => $h->cleanValue($input['died'] ?? ''),
             'deathplace' => $h->cleanValue($input['deathplace'] ?? ''),
         ];
+        foreach (['born_source', 'birthplace_source', 'died_source', 'deathplace_source'] as $key) {
+            $fields[$key] = $h->cleanValue($input[$key] ?? '', 500);
+        }
         if ($role === 'child') $fields['sex'] = $h->cleanValue($input['sex'] ?? '', 20);
         $id = $explicitId;
         $existing = false;
@@ -188,6 +191,20 @@ class action_plugin_awgenealogy extends ActionPlugin
             if (isset($member['error'])) return $this->reply(false, $member['error']);
             if ($member) $members[$role] = $member;
         }
+        $roleInput = $INPUT->post->arr('parent_roles');
+        $parentRoles = [
+            'father' => is_array($roleInput) ? ($roleInput['father'] ?? 'father') : 'father',
+            'mother' => is_array($roleInput) ? ($roleInput['mother'] ?? 'mother') : 'mother',
+        ];
+        foreach ($parentRoles as $chartRole) {
+            if (!in_array($chartRole, ['father', 'mother', 'none'], true)) {
+                return $this->reply(false, 'Choose a valid ancestor chart role for each parent or partner.');
+            }
+        }
+        if (isset($members['father'], $members['mother']) && $parentRoles['father'] !== 'none' &&
+            $parentRoles['father'] === $parentRoles['mother']) {
+            return $this->reply(false, 'Each ancestor chart role can be assigned to only one parent or partner.');
+        }
         $children = [];
         $childrenIn = $INPUT->post->arr('children');
         if (is_array($childrenIn)) {
@@ -196,13 +213,23 @@ class action_plugin_awgenealogy extends ActionPlugin
                 if (!is_array($input)) continue;
                 $child = $this->familyMember($h, $input, 'child', $reserved);
                 if (isset($child['error'])) return $this->reply(false, $child['error']);
-                if ($child) $children[] = $child;
+                if ($child) {
+                    $relationship = $h->cleanValue($input['relationship'] ?? 'biological', 30);
+                    if (!array_key_exists($relationship, helper_plugin_awgenealogy::CHILD_RELATIONSHIPS)) {
+                        return $this->reply(false, 'Choose a valid relationship for each child.');
+                    }
+                    $child['relationship'] = $relationship;
+                    $children[] = $child;
+                }
             }
         }
         $plannedParents = [];
         foreach ($children as $child) {
+            if ($child['relationship'] !== 'biological') continue;
             foreach (['father', 'mother'] as $role) {
                 if (!isset($members[$role])) continue;
+                $chartRole = $parentRoles[$role];
+                if ($chartRole === 'none') continue;
                 $parentId = $members[$role]['id'];
                 if ($h->wouldCreateAncestryCycle($parentId, $child['id'], $plannedParents)) {
                     return $this->reply(false, 'This family group would create a circular parent relationship.');
@@ -214,17 +241,29 @@ class action_plugin_awgenealogy extends ActionPlugin
             'title' => $title,
             'father' => $members['father']['id'] ?? '',
             'mother' => $members['mother']['id'] ?? '',
+            'parent1_role' => $parentRoles['father'],
+            'parent2_role' => $parentRoles['mother'],
+            'union_type' => $h->cleanValue($INPUT->post->str('union_type'), 30),
+            'union_source' => $h->cleanValue($INPUT->post->str('union_source'), 500),
             'marriage_date' => $h->cleanValue($INPUT->post->str('marriage_date')),
             'marriage_place' => $h->cleanValue($INPUT->post->str('marriage_place')),
             'sources' => $this->cleanFamilyText($h, $INPUT->post->str('sources')),
             'notes' => $this->cleanFamilyText($h, $INPUT->post->str('notes')),
         ];
-        foreach ($children as $i => $child) $familyFields['child_' . ($i + 1)] = $child['id'];
+        if ($familyFields['union_type'] !== '' &&
+            !array_key_exists($familyFields['union_type'], helper_plugin_awgenealogy::UNION_TYPES)) {
+            return $this->reply(false, 'Choose a valid relationship type for this family group.');
+        }
+        foreach ($children as $i => $child) {
+            $number = $i + 1;
+            $familyFields['child_' . $number] = $child['id'];
+            $familyFields['child_' . $number . '_relationship'] = $child['relationship'];
+        }
 
         foreach (array_merge(array_values($members), $children) as $person) {
             if ($person['existing']) {
                 $changes = ['name' => $person['name']];
-                foreach (['born', 'birthplace', 'died', 'deathplace', 'sex'] as $key) {
+                foreach (['born', 'birthplace', 'born_source', 'birthplace_source', 'died', 'deathplace', 'died_source', 'deathplace_source', 'sex'] as $key) {
                     if (isset($person['fields'][$key]) && ($person['explicit'] || $person['fields'][$key] !== '')) {
                         $changes[$key] = $person['fields'][$key];
                     }
@@ -240,11 +279,14 @@ class action_plugin_awgenealogy extends ActionPlugin
         }
 
         foreach ($children as $child) {
+            if ($child['relationship'] !== 'biological') continue;
             $links = [];
             foreach (['father', 'mother'] as $role) {
                 if (!isset($members[$role])) continue;
+                $chartRole = $parentRoles[$role];
+                if ($chartRole === 'none') continue;
                 $parentId = $members[$role]['id'];
-                $links[$role] = getNS($parentId) === getNS($child['id']) ? noNS($parentId) : $parentId;
+                $links[$chartRole] = getNS($parentId) === getNS($child['id']) ? noNS($parentId) : $parentId;
             }
             if ($links) saveWikiText($child['id'], $h->setFields(rawWiki($child['id']), $links), 'Linked from a family group');
         }
@@ -293,7 +335,9 @@ class action_plugin_awgenealogy extends ActionPlugin
             $cur = $map[$n] ?? null;
             $in = (isset($posted[$n]) && is_array($posted[$n])) ? $posted[$n] : null;
             $vals = [];
-            foreach (helper_plugin_awgenealogy::EDITABLE as $k) $vals[$k] = $h->cleanValue($in[$k] ?? '');
+            foreach (helper_plugin_awgenealogy::EDITABLE as $k) {
+                $vals[$k] = $h->cleanValue($in[$k] ?? '', strpos($k, '_source') !== false ? 500 : 200);
+            }
 
             if (is_array($cur) && isset($cur['person']) && empty($cur['person']['private'])) {
                 $pid = $cur['id'];

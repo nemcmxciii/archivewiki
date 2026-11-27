@@ -56,8 +56,15 @@ class syntax_plugin_awgenealogy_pedigree extends SyntaxPlugin
             $renderer->doc .= $h->pickerHtml($ID);
             return true;
         }
-        // The form is the default view; the tree is for looking and printing (and always used for redacted charts).
+        // The form is the default view; tree and descendants are reading and print-friendly views.
         $view = $INPUT->str('awgview');
+        if ($view === 'descendants') {
+            if (!$data['redact']) {
+                $renderer->doc .= $h->viewSwitch($ID, 'descendants', $INPUT->has('root') ? ['root' => $INPUT->str('root')] : []);
+            }
+            $renderer->doc .= $h->descendantsHtml($root, $data['gens'], $data['redact']);
+            return true;
+        }
         $tree = $data['redact'] || $data['tree'] ? true : ($view === 'tree');
         if ($view === 'form' && !$data['redact']) $tree = false;
         if ($tree) {

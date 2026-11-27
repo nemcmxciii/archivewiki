@@ -34,10 +34,12 @@ class syntax_plugin_awgenealogy_familygroup extends SyntaxPlugin
         if (!empty($data['directory'])) {
             $families = $h->allFamilies();
             if (!$families) {
-                $renderer->doc .= '<p class="awg-family-empty">No family groups yet. Create one using the form above.</p>';
+                $renderer->doc .= $h->genealogyNavHtml('families') .
+                    '<p class="awg-family-empty">No family groups yet. Create one using the form above.</p>';
                 return true;
             }
-            $renderer->doc .= '<div class="awg-family-directory"><label><span>Find a family group</span>' .
+            $renderer->doc .= $h->genealogyNavHtml('families') .
+                '<div class="awg-family-directory"><label><span>Find a family group</span>' .
                 '<input type="search" class="awg-family-search" placeholder="Search names, dates, or places" autocomplete="off" /></label>' .
                 '<p class="awg-family-count" role="status">' . count($families) . (count($families) === 1 ? ' family group' : ' family groups') . '</p><ul>';
             foreach ($families as $id => $title) {
@@ -51,15 +53,23 @@ class syntax_plugin_awgenealogy_familygroup extends SyntaxPlugin
                         $members[] = !empty($person['private']) ? 'Private' : ($person['fields']['name'] ?? $h->titleFromId($pid));
                     }
                 }
+                $relationships = [];
                 foreach ($fields as $key => $ref) {
                     if (!preg_match('/^child_[0-9]+$/', $key)) continue;
                     $pid = $h->resolveRef($ref, $id);
                     $person = $pid !== '' ? $h->getPerson($pid) : null;
-                    if ($person) $members[] = !empty($person['private']) ? 'Private' : ($person['fields']['name'] ?? $h->titleFromId($pid));
+                    if ($person) {
+                        $members[] = !empty($person['private']) ? 'Private' : ($person['fields']['name'] ?? $h->titleFromId($pid));
+                        $number = substr($key, strlen('child_'));
+                        $relationships[] = $h->childRelationshipLabel($fields['child_' . $number . '_relationship'] ?? 'biological');
+                    }
                 }
-                $search = implode(' ', array_merge([$title, $fields['marriage_date'] ?? '', $fields['marriage_place'] ?? ''], $members));
+                $unionType = $h->unionTypeLabel($fields['union_type'] ?? '');
+                $search = implode(' ', array_merge([$title, $unionType, $fields['marriage_date'] ?? '', $fields['marriage_place'] ?? '', $fields['union_source'] ?? ''], $relationships, $members));
                 $needle = function_exists('mb_strtolower') ? mb_strtolower($search, 'UTF-8') : strtolower($search);
                 $renderer->doc .= '<li data-search="' . hsc($needle) . '"><a href="' . wl($id) . '">' . hsc($title) . '</a>' .
+                    ($unionType !== '' ? '<small class="awg-family-union">' . hsc($unionType) . '</small>' : '') .
+                    ($relationships ? '<small class="awg-family-union">' . hsc(implode(' · ', array_unique($relationships))) . '</small>' : '') .
                     ($members ? '<span>' . hsc(implode(' · ', $members)) . '</span>' : '') . '</li>';
             }
             $renderer->doc .= '</ul><p class="awg-family-none" hidden>No family groups match that search.</p></div>';

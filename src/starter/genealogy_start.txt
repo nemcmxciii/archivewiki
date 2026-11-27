@@ -10,8 +10,8 @@ Enter a name to create a person page. Dates and places are optional, so it is fi
 
 ===== Explore family connections =====
 
-  * [[genealogy:families:start|Create a family group]] — bring parents, partners, children, and sources together on one sheet.
-  * [[genealogy:chart|Build a family tree]] — follow parents and earlier generations one step at a time.
+  * [[genealogy:families:start|Create a family group]] — record parent or partner roles, children, relationships, and sources on one sheet.
+  * [[genealogy:chart|Build a family tree]] — follow parents and earlier generations, or switch to Descendants to follow children and family groups.
   * [[genealogy:chart_blank|Print a blank family tree]] — fill it in by hand.
 
 ===== Find a person =====
@@ -24,6 +24,6 @@ Search by name, date, or place. Open a person's page to see their details, famil
 
   * You can add details or correct them later. Nothing needs to be complete before you begin.
   * Add sources to remember where a detail came from and to help you find the original record again.
-  * Family trees focus on parents and ancestors. Living relatives are marked in the tree, and the redacted view hides their names.
+  * The ancestor chart focuses on parents; the Descendants view follows children and family groups. Living relatives are marked in the tree, and the redacted view hides their names.
 
 Your family pages and research are stored in this wiki on this Mac.

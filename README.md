@@ -100,27 +100,27 @@ delivery itself depends on the wiki's mail configuration.
 
 ## Genealogy
 The **ArchiveWiki Genealogy** plugin (`vendor/plugins/awgenealogy`, copied into your wiki like the other bundled plugins) adds:
-- a **quick-add form** on the Genealogy start page: create a person with a name and optionally add dates and places; a searchable local directory finds people by name, dates or places;
-- **Family Group sheets**: a form for two parents or partners, marriage or partnership details, children, sources, and research notes. Search for and select existing people to link their pages; choose **Clear person selection** to start a new person. Existing details are filled in for you, and edits update that person's page. Saved child relationships feed into the pedigree tree. Family sheets have their own searchable index;
+- a **quick-add form** on the Genealogy start page: create a person with a name and optionally add dates, places, and source citations; a searchable local directory finds people by name, dates or places;
+- **Family Group sheets**: a form for two parents or partners, partnership type and details, children, sources, and research notes. Each parent/partner can be assigned a father/mother role in the ancestor chart, or kept as a family-only link. Child relationships can be marked biological, adoptive, step, foster, guardian, or other/uncertain. Search for existing people to link their pages; choose **Clear person selection** to start a new person. Multiple Family Groups can represent multiple partnerships for one person;
 - **automatic family connections** on person pages: linked Family Group sheets show that person's parents or partners, children, and siblings, so relatives are easy to discover without manually maintaining a second list. People the current reader cannot access are shown as private;
 - a **person block** (`<person> ... </person>`) on each person's page: name, sex, born / birthplace, died / deathplace, `father`, `mother`
-  (page names, resolved like links in the same section) and `living`. It's shown as a small card on the page;
+  (page names, resolved like links in the same section) and `living`. Birth and death facts can each carry a source citation; citations appear on the person page and can include a record, archive, page number, or URL;
 - a **guided ancestor form**: `{{pedigree>genealogy:jane_doe}}` (add `?4` for a different number of generations). It shows one generation at a time, keeps progress across steps, and lets you save partial work. It lists the
   person, parents, grandparents, great-grandparents and 2nd great-grandparents one generation after another, so it flows vertically
-  and works in a narrow window. Every person has name, born, birthplace, died, place of death and a **Living** checkbox.
+  and works in a narrow window. Every person has name, born, birthplace, died, place of death, source citations, and a **Living** checkbox.
   Search for and select existing relatives to link them without changing their person pages, or enter a new name to create a page. Type a name to unlock the next generation, then press **Save changes**. One save validates everything first and applies nothing if
   something is wrong, then creates pages for new people, links selected existing people as father or mother, and updates anyone you edited.
 New person pages include the form automatically; `genealogy:chart` has a person picker, and the Genealogy start page has a searchable people directory.
 `genealogy:families:start` is the Family Groups workspace.
-- a **Tree** view (the link above the form, or `?tree`): the traditional landscape chart with the standard numbering (1 = root, 2 = father,
-  3 = mother, 2n / 2n+1 = parents of n), still editable with **+ add** and ✎. `?redact` always shows the tree with living people as "Living".
+- an **Ancestor tree** view (the link above the form, or `?tree`): the traditional landscape chart with the standard numbering (1 = root, 2 = father,
+  3 = mother, 2n / 2n+1 = parents of n), still editable with **+ add** and ✎. The **Descendants** view follows children in Family Groups and person-page parent links, labels non-biological relationships, and stops safely at repeated links. `?redact` hides living people's names in either tree view.
   `genealogy:chart_blank` is a blank tree to print and fill in by hand.
 - printing (⌘P): the form prints as three columns of compact cards; the tree prints on one landscape page.
 Who may save follows DokuWiki's permissions. Person details stay in the page's `<person>` block, so no second structured-data store is needed.
+Fact citations are free-text fields (up to 500 characters), not a normalized source catalog; they can identify a record, archive, page number, or URL.
 **Living:** a person with a death date, or born more than 110 years ago, is saved as
 not living. Otherwise the checkbox decides, and it starts ticked for the person and their parents and unticked for older generations,
-so you will not share someone who may still be alive by mistake. Marriages, siblings and multiple spouses aren't modelled yet; the chart
-follows only the father and mother links. Family Group and chart saves reject parent links that would create circular ancestry.
+so you will not share someone who may still be alive by mistake. The ancestor chart follows only father and mother links. Descendant charts use Family Groups for partners and children, so one person can appear in multiple partnerships. Changing a Family Group's relationship type does not automatically remove existing father/mother links from person pages. Family Group and chart saves reject parent links that would create circular ancestry.
 
 ## Bundled plugins
 These DokuWiki plugins ship inside the app and are copied into your wiki once, on first launch (or the first launch after

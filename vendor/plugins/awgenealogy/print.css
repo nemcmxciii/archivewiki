@@ -15,7 +15,10 @@ table.awg-pedigree td.awg-gen { padding: 0 4pt 0 0; vertical-align: middle; bord
 a.awg-name:after { content: none !important; }
 
 /* form view when printed */
-.awg-views, .awg-stepper, .awg-step-intro, .awg-actions, .awg-msg, .awg-open, .awg-hint { display: none !important; }
+.awg-views, .awg-genealogy-nav, .awg-stepper, .awg-step-intro, .awg-actions, .awg-msg, .awg-open, .awg-hint { display: none !important; }
+details.awg-fact-sources, details.awg-person-citations { display: block; }
+details.awg-fact-sources:not([open]) > :not(summary), details.awg-person-citations:not([open]) > :not(summary) { display: block !important; }
+details.awg-fact-sources > summary, details.awg-person-citations > summary { display: none !important; }
 .awg-gensec { display: block !important; }
 .awg-family-intro, .awg-add-child, .awg-remove-child, .awg-family-actions, .awg-family-result,
 .awg-family-directory > label, .awg-family-count, .awg-family-none { display: none !important; }
@@ -23,7 +26,7 @@ a.awg-name:after { content: none !important; }
 .awg-family-member, .awg-family-marriage, .awg-family-children, .awg-family-sources, .awg-child-row {
     margin: 3pt 0; padding: 4pt; border: 0.75pt solid #888; page-break-inside: avoid;
 }
-.awg-family-field input, .awg-family-field textarea {
+.awg-family-field input, .awg-family-field textarea, .awg-family-field select {
     width: 100%; border: 0; border-bottom: 0.5pt solid #777; border-radius: 0; background: none; box-shadow: none;
 }
 .awg-family-directory ul { list-style: none; }
@@ -38,3 +41,5 @@ fieldset.awg-blocked { opacity: .45; }
 .awg-f input { width: 100%; border: 0; border-bottom: 0.5pt solid #777; border-radius: 0; background: none; font-size: 8.5pt; padding: 0; box-shadow: none; }
 .awg-pair { display: grid; grid-template-columns: 1fr 1.4fr; gap: 4pt; }
 .awg-foot { font-size: 7.5pt; margin-top: 2pt; }
+.awg-desc-family { border-left: 1pt solid #777; page-break-inside: avoid; }
+.awg-desc-family-meta > span, .awg-family-relationship, .awg-desc-intro { color: #444; }

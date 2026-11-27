@@ -45,13 +45,30 @@ class syntax_plugin_awgenealogy_person extends SyntaxPlugin
             $pid = $h->resolveRef($f[$k] ?? '', $ID);
             if ($pid !== '') {
                 $p = $h->getPerson($pid);
+                if ($p && !empty($p['private'])) {
+                    $add($label, 'Private');
+                    continue;
+                }
                 $name = $p ? ($p['fields']['name'] ?? $h->titleFromId($pid)) : $h->titleFromId($pid);
                 $add($label, '<a href="' . wl($pid) . '" class="' . ($p ? 'wikilink1' : 'wikilink2') . '">' . hsc($name) . '</a>');
             }
         }
         if (in_array(strtolower(trim($f['living'] ?? '')), ['yes', 'y', 'true', '1'], true)) $add('Status', 'Living');
+        $citations = '';
+        foreach ([
+            'born_source' => 'Birth date source',
+            'birthplace_source' => 'Birthplace source',
+            'died_source' => 'Death date source',
+            'deathplace_source' => 'Place of death source',
+        ] as $key => $label) {
+            if (trim($f[$key] ?? '') !== '') {
+                $citations .= '<dt>' . hsc($label) . '</dt><dd>' . hsc($f[$key]) . '</dd>';
+            }
+        }
         $renderer->doc .= '<div class="awg-person"><div class="awg-person-name">' . hsc($f['name'] ?? '') . '</div>' .
-            ($rows !== '' ? '<dl>' . $rows . '</dl>' : '') . '</div>' . $h->familyConnectionsHtml($ID);
+            ($rows !== '' ? '<dl>' . $rows . '</dl>' : '') . '</div>' .
+            ($citations !== '' ? '<details class="awg-person-citations"><summary>Sources for life events</summary><dl>' . $citations . '</dl></details>' : '') .
+            $h->familyConnectionsHtml($ID);
         return true;
     }
 }

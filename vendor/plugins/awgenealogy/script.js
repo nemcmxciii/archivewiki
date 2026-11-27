@@ -153,7 +153,7 @@ jQuery(function () {
             var $record = $lookup.closest('.awg-family-member, .awg-child-row, .awg-card');
             $lookup.find('.awg-person-id').val(person.id);
             $lookup.find('.awg-person-input').val(person.name);
-            ['name', 'born', 'birthplace', 'died', 'deathplace', 'sex'].forEach(function (field) {
+            ['name', 'born', 'birthplace', 'born_source', 'birthplace_source', 'died', 'deathplace', 'died_source', 'deathplace_source', 'sex'].forEach(function (field) {
                 var $field = $record.find('[name$="[' + field + ']"]');
                 if ($field.length) $field.val(person[field] || '');
             });
@@ -200,6 +200,7 @@ jQuery(function () {
             var $input = $(this), name = $input.attr('name').replace(/children\[\d+\]/, 'children[' + index + ']');
             $input.attr('name', name).val('');
         });
+        $row.find('select[name$="[relationship]"]').val('biological');
         $row.find('input[type=hidden]').val('');
         $row.find('.awg-person-input').val('');
         $row.find('.awg-person-clear').prop('hidden', true);
@@ -270,10 +271,19 @@ jQuery(function () {
         var $bp = field('birthplace', 'Birthplace', vals.birthplace);
         var $died = field('died', 'Died (date)', vals.died);
         var $dp = field('deathplace', 'Place of death', vals.deathplace);
+        var $bornSource = field('born_source', 'Birth date source', vals.born_source);
+        var $birthplaceSource = field('birthplace_source', 'Birthplace source', vals.birthplace_source);
+        var $diedSource = field('died_source', 'Death date source', vals.died_source);
+        var $deathplaceSource = field('deathplace_source', 'Place of death source', vals.deathplace_source);
         var $err = $('<div class="awg-err"/>');
         var $save = $('<button type="button" class="button"/>').text('Save');
         var $cancel = $('<button type="button" class="button"/>').text('Cancel');
-        $f.append($name, $('<div class="awg-row"/>').append($born, $bp), $('<div class="awg-row"/>').append($died, $dp), $err, $save, $cancel);
+        var $sources = $('<details class="awg-fact-sources"><summary>Attach sources to dates and places (optional)</summary></details>')
+            .append($('<label/>').append($('<span/>').text('Birth date source'), $bornSource))
+            .append($('<label/>').append($('<span/>').text('Birthplace source'), $birthplaceSource))
+            .append($('<label/>').append($('<span/>').text('Death date source'), $diedSource))
+            .append($('<label/>').append($('<span/>').text('Place of death source'), $deathplaceSource));
+        $f.append($name, $('<div class="awg-row"/>').append($born, $bp), $('<div class="awg-row"/>').append($died, $dp), $sources, $err, $save, $cancel);
         $box.append($f);
         $box.closest('.awg-chart').css('overflow', 'visible');
         $name.focus();
@@ -293,7 +303,9 @@ jQuery(function () {
                 mode: mode,
                 id: mode === 'add' ? vals.child : vals.id,
                 sectok: $box.closest('.awg-chart').data('sectok'),
-                name: $name.val(), born: $born.val(), birthplace: $bp.val(), died: $died.val(), deathplace: $dp.val()
+                name: $name.val(), born: $born.val(), birthplace: $bp.val(), born_source: $bornSource.val(),
+                birthplace_source: $birthplaceSource.val(), died: $died.val(), deathplace: $dp.val(),
+                died_source: $diedSource.val(), deathplace_source: $deathplaceSource.val()
             };
             if (mode === 'add') data.role = vals.role;
             $save.prop('disabled', true);
@@ -316,7 +328,10 @@ jQuery(function () {
         var $box = $(this).closest('.awg-box');
         openForm($box, 'update', {
             id: $box.data('id'), name: $box.attr('data-name'), born: $box.attr('data-born'),
-            birthplace: $box.attr('data-birthplace'), died: $box.attr('data-died'), deathplace: $box.attr('data-deathplace')
+            birthplace: $box.attr('data-birthplace'), born_source: $box.attr('data-born_source'),
+            birthplace_source: $box.attr('data-birthplace_source'), died: $box.attr('data-died'),
+            deathplace: $box.attr('data-deathplace'), died_source: $box.attr('data-died_source'),
+            deathplace_source: $box.attr('data-deathplace_source')
         });
     });
 
