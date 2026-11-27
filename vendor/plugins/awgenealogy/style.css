@@ -34,27 +34,33 @@
 .awg-person-row span, .awg-person-row small { color: __text_alt__; }
 .awg-directory-none, .awg-directory-empty { color: __text_neu__; }
 .awg-family-editor { max-width: 62em; margin: .8em 0 1.5em; }
-.awg-family-intro { max-width: 50em; }
+.awg-family-intro { max-width: 50em; margin: .4em 0 1em; color: __text_alt__; }
 .awg-family-title { max-width: 36em; margin-bottom: .8em; }
-.awg-family-parents { display: grid; grid-template-columns: repeat(auto-fit, minmax(18em, 1fr)); gap: .8em; }
-.awg-family-member, .awg-family-marriage, .awg-family-children, .awg-family-sources { margin: .8em 0; padding: .75em; border: 1px solid __border__; border-radius: .45em; background: __background_alt__; }
+.awg-family-parents { display: grid; grid-template-columns: repeat(auto-fit, minmax(18em, 1fr)); align-items: start; gap: .8em; }
+.awg-family-member, .awg-family-marriage, .awg-family-children, .awg-family-sources { margin: .8em 0; padding: .85em; border: 1px solid __border__; border-radius: .55em; background: __background_alt__; }
 .awg-family-member legend, .awg-family-marriage legend, .awg-family-children legend, .awg-family-sources legend { padding: 0 .35em; font-weight: 650; }
 .awg-family-field { display: block; min-width: 0; margin: .3em 0; }
 .awg-family-field > span, .awg-family-directory > label > span { display: block; color: __text_neu__; font-size: .84em; }
-.awg-family-field input, .awg-family-field textarea, .awg-family-directory input { width: 100%; box-sizing: border-box; }
+.awg-family-field input, .awg-family-field textarea, .awg-family-directory input { width: 100%; box-sizing: border-box; padding: .4em .6em; border: 1px solid __border__; border-radius: .35em; background: __background__; }
+.awg-family-field input, .awg-family-directory input { min-height: 2.4em; }
 .awg-family-field textarea { resize: vertical; }
 .awg-child-rows { display: grid; grid-template-columns: repeat(auto-fit, minmax(19em, 1fr)); gap: .7em; }
-.awg-child-row { min-width: 0; padding: .65em; border: 1px solid __border__; border-radius: .4em; background: __background__; }
+.awg-child-row { min-width: 0; padding: .75em; border: 1px solid __border__; border-radius: .45em; background: __background__; }
 .awg-person-lookup, .awg-person-control { position: relative; min-width: 0; }
+.awg-person-lookup { margin: .2em 0 .45em; }
+.awg-person-lookup .awg-family-field { margin: .25em 0; }
+.awg-person-lookup .awg-family-field > span { margin-bottom: .25em; font-weight: 600; }
+.awg-family-field input:focus-visible, .awg-family-field textarea:focus-visible, .awg-family-directory input:focus-visible { outline: 2px solid __theme_color__; outline-offset: 1px; }
 .awg-person-input { box-sizing: border-box; width: 100%; }
-.awg-person-suggestions { position: absolute; z-index: 20; top: 100%; right: 0; left: 0; max-height: 16em; overflow-y: auto; margin: -.1em 0 0; padding: .25em; border: 1px solid __border__; border-radius: .35em; background: __background__; box-shadow: 0 .25em .8em rgba(0, 0, 0, .18); }
+.awg-person-suggestions { position: absolute; z-index: 20; top: calc(100% + .15em); right: 0; left: 0; max-height: 18em; overflow-y: auto; margin: 0; padding: .3em; border: 1px solid __border__; border-radius: .45em; background: __background__; box-shadow: 0 .35em .9em rgba(0, 0, 0, .16); }
 .awg-person-suggestions[hidden] { display: none; }
-.awg-person-option { width: 100%; padding: .45em .55em; border: 0; background: transparent; text-align: left; cursor: pointer; }
+.awg-person-option { display: block; width: 100%; min-height: 2.25em; padding: .45em .6em; border: 0; border-radius: .3em; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .awg-person-option:hover, .awg-person-option:focus { background: __background_alt__; outline: 2px solid __theme_color__; outline-offset: -2px; }
-.awg-person-no-match { padding: .45em .55em; color: __text_alt__; }
-.awg-person-message { margin: .15em 0 .35em; color: __text_alt__; font-size: .82em; }
+.awg-person-no-match { padding: .45em .6em; color: __text_alt__; }
+.awg-person-message { min-height: 1.25em; margin: .2em 0 .35em; color: __text_alt__; font-size: .84em; }
 .awg-person-clear { margin: 0 0 .4em; }
 .awg-person-input[readonly] { background: __background_alt__; }
+.awg-family-actions, .awg-child-row .awg-remove-child, .awg-add-child, .awg-person-clear { margin-top: .35em; }
 .awg-family-result.awg-bad { color: __missing__; }
 .awg-family-result.awg-good { color: __existing__; font-weight: 650; }
 .awg-family-directory { max-width: 56em; }
