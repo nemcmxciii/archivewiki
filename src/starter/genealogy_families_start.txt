@@ -4,7 +4,7 @@ Use a family group sheet to keep the details of a household together. Enter the 
 
 ===== Create a family group =====
 
-If a name matches an existing person page, the sheet connects to it. A new name gets its own person page.
+Search for and select an existing person to connect their page to this sheet. Their details will be filled in for you; changes you make update their person page. Choose **Clear person selection** to start a new person instead. New names get their own person pages.
 
 {{familygroup>new}}
 

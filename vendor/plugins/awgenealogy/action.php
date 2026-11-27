@@ -270,7 +270,12 @@ class action_plugin_awgenealogy extends ActionPlugin
         $ops = [];
         $errors = [];
         $slotId = [];
-        $reserved = [];
+        $reserved = [$rootId => true];
+        foreach ($map as $slot) {
+            if (isset($slot['id'], $slot['person']) && empty($slot['person']['private'])) {
+                $reserved[$slot['id']] = true;
+            }
+        }
         $total = (1 << $gens) - 1;
         for ($n = 1; $n <= $total; $n++) {
             $cur = $map[$n] ?? null;
@@ -281,6 +286,7 @@ class action_plugin_awgenealogy extends ActionPlugin
             if (is_array($cur) && isset($cur['person']) && empty($cur['person']['private'])) {
                 $pid = $cur['id'];
                 $slotId[$n] = $pid;
+                $reserved[$pid] = true;
                 if ($in === null) continue;
                 $f = $cur['person']['fields'];
                 $changes = [];
@@ -304,6 +310,28 @@ class action_plugin_awgenealogy extends ActionPlugin
 
             // empty slot: create a person if anything was typed
             if ($in === null) continue;
+            $personId = cleanID($in['person_id'] ?? '');
+            if ($personId !== '') {
+                $person = $h->getPerson($personId);
+                if (strpos($personId, 'genealogy:') !== 0 || !$person || !empty($person['private']) ||
+                    !$h->findBlock(rawWiki($personId))) {
+                    $errors[$n] = 'Choose an available person page.';
+                    continue;
+                }
+                if (isset($reserved[$personId])) { $errors[$n] = 'This person is already in the chart.'; continue; }
+                $childN = intdiv($n, 2);
+                if (!isset($slotId[$childN])) { $errors[$n] = 'Fill in the previous generation first.'; continue; }
+                $childId = $slotId[$childN];
+                if (page_exists($childId) && (auth_quickaclcheck($childId) < AUTH_EDIT || checklock($childId) !== false)) {
+                    $errors[$n] = 'The previous generation\'s page can\'t be edited right now.';
+                    continue;
+                }
+                $reserved[$personId] = true;
+                $slotId[$n] = $personId;
+                $ops[] = ['type' => 'link', 'id' => $personId, 'child' => $childId,
+                          'role' => ($n % 2 === 0) ? 'father' : 'mother'];
+                continue;
+            }
             if (!array_filter($vals)) continue;
             if ($vals['name'] === '') { $errors[$n] = 'Please enter a name.'; continue; }
             $childN = intdiv($n, 2);
@@ -330,22 +358,28 @@ class action_plugin_awgenealogy extends ActionPlugin
         }
 
         if ($errors) return $this->reply(false, 'Please fix the highlighted people and save again. Nothing was saved.', ['errors' => $errors]);
-        if (!$ops) return $this->reply(true, 'Nothing to save.', ['created' => 0, 'updated' => 0]);
+        if (!$ops) return $this->reply(true, 'Nothing to save.', ['created' => 0, 'updated' => 0, 'linked' => 0]);
 
         $created = 0;
         $updated = 0;
+        $linked = 0;
         foreach ($ops as $op) {
             if ($op['type'] === 'update') {
                 saveWikiText($op['id'], $h->setFields(rawWiki($op['id']), $op['changes']), 'Edited from the pedigree form');
                 $updated++;
-            } else {
+            } elseif ($op['type'] === 'create') {
                 saveWikiText($op['id'], $h->newPersonText($op['id'], $op['name'], $op['fields'] + ['name' => $op['name']]), 'Added from the pedigree form');
                 $ns = getNS($op['child']);
                 $ref = (getNS($op['id']) === $ns) ? noNS($op['id']) : $op['id'];
                 saveWikiText($op['child'], $h->setFields(rawWiki($op['child']), [$op['role'] => $ref]), 'Linked ' . $op['role'] . ' from the pedigree form');
                 $created++;
+            } else {
+                $ns = getNS($op['child']);
+                $ref = (getNS($op['id']) === $ns) ? noNS($op['id']) : $op['id'];
+                saveWikiText($op['child'], $h->setFields(rawWiki($op['child']), [$op['role'] => $ref]), 'Linked existing person from the pedigree form');
+                $linked++;
             }
         }
-        return $this->reply(true, 'Saved.', ['created' => $created, 'updated' => $updated]);
+        return $this->reply(true, 'Saved.', ['created' => $created, 'updated' => $updated, 'linked' => $linked]);
     }
 }

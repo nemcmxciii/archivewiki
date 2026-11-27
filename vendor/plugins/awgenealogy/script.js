@@ -1,6 +1,7 @@
 /* ArchiveWiki Genealogy: fill in or edit a person right on the chart (no pop-up dialogs). */
 jQuery(function () {
     var $ = jQuery;
+    var personLookupId = 0;
 
     $('.awg-newperson').on('submit', function (e) {
         e.preventDefault();
@@ -46,6 +47,143 @@ jQuery(function () {
         $list.find('.awg-family-none').prop('hidden', shown !== 0);
     });
 
+    $('.awg-family-editor, .awg-formwrap').each(function () {
+        var $container = $(this), people = [];
+        try {
+            people = JSON.parse($container.attr('data-people') || '[]');
+        } catch (error) {
+            $container.find('.awg-person-message').text('Person search is unavailable. You can still enter a new name.');
+        }
+
+        $container.find('.awg-person-lookup').each(function (index) {
+            var $lookup = $(this), $input = $lookup.find('.awg-person-input'),
+                $id = $lookup.find('.awg-person-id'), $list = $lookup.find('.awg-person-suggestions'),
+                $message = $lookup.find('.awg-person-message'), linkOnly = $lookup.attr('data-link-only') === 'true';
+            $list.attr('id', 'awg-person-options-' + (++personLookupId));
+            $input.attr('aria-controls', $list.attr('id'));
+            if ($id.val()) {
+                $lookup.find('.awg-person-clear').prop('hidden', false);
+                $message.text(linkOnly
+                    ? 'This existing person will be linked; their details will not be changed.'
+                    : 'This existing person is linked. Changes to the details below update their person page.');
+            }
+        });
+
+        function selectedElsewhere(id, $current) {
+            var selected = false;
+            $container.find('.awg-person-id').not($current.find('.awg-person-id')).each(function () {
+                if ($(this).val() === id) selected = true;
+            });
+            $container.find('.awg-card[data-id]').not($current.closest('.awg-card')).each(function () {
+                if ($(this).attr('data-id') === id) selected = true;
+            });
+            return selected;
+        }
+
+        function closeList($lookup) {
+            $lookup.find('.awg-person-suggestions').prop('hidden', true).empty();
+            $lookup.find('.awg-person-input').attr('aria-expanded', 'false');
+        }
+
+        function showMatches($lookup, query) {
+            var $list = $lookup.find('.awg-person-suggestions'), $input = $lookup.find('.awg-person-input');
+            var matches = people.filter(function (person) {
+                return person.name.toLocaleLowerCase().indexOf(query) !== -1 && !selectedElsewhere(person.id, $lookup);
+            }).slice(0, 8);
+            $lookup.data('matches', matches);
+            $list.empty();
+            if (!matches.length) {
+                $list.append($('<div class="awg-person-no-match" role="option" aria-disabled="true"/>')
+                    .text('No available match. You can still add a new person.'));
+                $lookup.find('.awg-person-message').text($lookup.find('.awg-person-id').val()
+                    ? 'No other match. The selected person remains linked.'
+                    : 'No available match. Saving will create a new person page.');
+            } else {
+                matches.forEach(function (person, index) {
+                    var details = [];
+                    if (person.born) details.push('born ' + person.born);
+                    if (person.died) details.push('died ' + person.died);
+                    var label = person.name + (details.length ? ' · ' + details.join(', ') : '');
+                    $('<button type="button" class="awg-person-option" role="option"/>')
+                        .attr('data-index', index).text(label).appendTo($list);
+                });
+                $lookup.find('.awg-person-message').text('Choose a person to link their existing page.');
+            }
+            $list.prop('hidden', false);
+            $input.attr('aria-expanded', 'true');
+        }
+
+        $container.on('input', '.awg-person-input', function () {
+            var $input = $(this), $lookup = $input.closest('.awg-person-lookup'), query = $.trim($input.val()).toLocaleLowerCase();
+            if (query.length < 2) {
+                closeList($lookup);
+                $lookup.find('.awg-person-message').text('Type at least two letters to search, or enter a new name.');
+                return;
+            }
+            showMatches($lookup, query);
+        }).on('keydown', '.awg-person-input', function (event) {
+            var $lookup = $(this).closest('.awg-person-lookup');
+            if (event.key === 'ArrowDown' && !$lookup.find('.awg-person-suggestions').prop('hidden')) {
+                event.preventDefault();
+                $lookup.find('.awg-person-option').first().trigger('focus');
+            } else if (event.key === 'Escape') {
+                closeList($lookup);
+            }
+        }).on('keydown', '.awg-person-option', function (event) {
+            var $options = $(this).closest('.awg-person-suggestions').find('.awg-person-option');
+            var index = $options.index(this);
+            if (event.key === 'ArrowDown' && index < $options.length - 1) {
+                event.preventDefault();
+                $options.eq(index + 1).trigger('focus');
+            } else if (event.key === 'ArrowUp') {
+                event.preventDefault();
+                if (index > 0) $options.eq(index - 1).trigger('focus');
+                else $(this).closest('.awg-person-lookup').find('.awg-person-input').trigger('focus');
+            } else if (event.key === 'Escape') {
+                var $lookup = $(this).closest('.awg-person-lookup');
+                closeList($lookup);
+                $lookup.find('.awg-person-input').trigger('focus');
+            }
+        }).on('mousedown', '.awg-person-option', function (event) {
+            event.preventDefault();
+        }).on('click', '.awg-person-option', function () {
+            var $lookup = $(this).closest('.awg-person-lookup');
+            var person = ($lookup.data('matches') || [])[parseInt($(this).attr('data-index'), 10)];
+            if (!person) return;
+            var $record = $lookup.closest('.awg-family-member, .awg-child-row, .awg-card');
+            $lookup.find('.awg-person-id').val(person.id);
+            $lookup.find('.awg-person-input').val(person.name);
+            ['name', 'born', 'birthplace', 'died', 'deathplace', 'sex'].forEach(function (field) {
+                var $field = $record.find('[name$="[' + field + ']"]');
+                if ($field.length) $field.val(person[field] || '');
+            });
+            if ($lookup.attr('data-link-only') === 'true') {
+                $record.find('input[type=text]').prop('readonly', true);
+                $lookup.find('.awg-person-message').text('This person will be linked; their details will not be changed.');
+            } else {
+                $lookup.find('.awg-person-message').text('This existing person is linked. Changes to the details below update their person page.');
+            }
+            $lookup.find('.awg-person-clear').prop('hidden', false);
+            closeList($lookup);
+            $lookup.find('input').trigger('change');
+        }).on('click', '.awg-person-clear', function () {
+            var $lookup = $(this).closest('.awg-person-lookup'), $record = $lookup.closest('.awg-family-member, .awg-child-row, .awg-card');
+            var linkOnly = $lookup.attr('data-link-only') === 'true';
+            $lookup.find('.awg-person-id').val('');
+            $lookup.find('.awg-person-input').val('');
+            $record.find('input[type=text]').val('').prop('readonly', false);
+            $lookup.find('.awg-person-clear').prop('hidden', true);
+            $lookup.find('.awg-person-input').trigger('input');
+            $lookup.find('.awg-person-message').text(linkOnly
+                ? 'Choose a match to link that person. If there is no match, saving will create a new person page.'
+                : 'Choose a match to link an existing person. Otherwise, a new person page will be created when you save.');
+            $lookup.find('.awg-person-input').trigger('focus');
+        }).on('focusout', '.awg-person-input', function () {
+            var $lookup = $(this).closest('.awg-person-lookup');
+            setTimeout(function () { if (!$lookup.find('.awg-person-suggestions :focus').length) closeList($lookup); }, 100);
+        });
+    });
+
     $('.awg-family-editor').on('click', '.awg-add-child', function () {
         var $rows = $(this).siblings('.awg-child-rows'), $last = $rows.children('.awg-child-row').last();
         if ($rows.children('.awg-child-row').length >= 20) {
@@ -63,6 +201,14 @@ jQuery(function () {
             $input.attr('name', name).val('');
         });
         $row.find('input[type=hidden]').val('');
+        $row.find('.awg-person-input').val('');
+        $row.find('.awg-person-clear').prop('hidden', true);
+        $row.find('.awg-person-message').text('Choose an existing person to link them, or enter a name to create a person page when you save.');
+        $row.find('.awg-person-suggestions').prop('hidden', true).empty();
+        $row.find('input[type=text]').prop('readonly', false);
+        var $picker = $row.find('.awg-person-lookup'), $suggestions = $picker.find('.awg-person-suggestions');
+        $suggestions.attr('id', 'awg-person-options-' + (++personLookupId));
+        $picker.find('.awg-person-input').attr('aria-controls', $suggestions.attr('id')).attr('aria-expanded', 'false');
         $rows.append($row);
         if ($rows.children('.awg-child-row').length >= 20) $(this).prop('disabled', true);
         $row.find('input[type=text]').first().trigger('focus');
@@ -263,9 +409,10 @@ jQuery(function () {
                 .done(function (r) {
                     if (r && r.ok) {
                         var saved = r.message || 'Changes saved.';
-                        if (r.created || r.updated) saved += ' ' +
+                        if (r.created || r.updated || r.linked) saved += ' ' +
                             (r.created ? r.created + (r.created === 1 ? ' person added. ' : ' people added. ') : '') +
-                            (r.updated ? r.updated + (r.updated === 1 ? ' person updated.' : ' people updated.') : '');
+                            (r.updated ? r.updated + (r.updated === 1 ? ' person updated. ' : ' people updated. ') : '') +
+                            (r.linked ? r.linked + (r.linked === 1 ? ' existing person linked.' : ' existing people linked.') : '');
                         try { sessionStorage.setItem('awgGenealogySaved', saved); } catch (ignore) {}
                         window.location.reload();
                         return;

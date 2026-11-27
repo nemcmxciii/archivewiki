@@ -1,0 +1,15 @@
+====== Family Groups ======
+
+Use a family group sheet to keep the details of a household together. Enter the names you know; dates, sources, and other details can be added later.
+
+===== Create a family group =====
+
+If a name matches an existing person page, the sheet connects to it. A new name gets its own person page.
+
+{{familygroup>new}}
+
+===== Your family groups =====
+
+Saved sheets appear here. Open one to review or update it; its people are linked to their individual pages and family trees.
+
+{{families>}}

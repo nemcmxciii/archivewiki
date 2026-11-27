@@ -101,15 +101,15 @@ delivery itself depends on the wiki's mail configuration.
 ## Genealogy
 The **ArchiveWiki Genealogy** plugin (`vendor/plugins/awgenealogy`, copied into your wiki like the other bundled plugins) adds:
 - a **quick-add form** on the Genealogy start page: create a person with a name and optionally add dates and places; a searchable local directory finds people by name, dates or places;
-- **Family Group sheets**: a form for two parents or partners, marriage or partnership details, children, sources, and research notes. Names create or connect individual pages, and saved child relationships feed into the pedigree tree. Family sheets have their own searchable index;
+- **Family Group sheets**: a form for two parents or partners, marriage or partnership details, children, sources, and research notes. Search for and select existing people to link their pages; choose **Clear person selection** to start a new person. Existing details are filled in for you, and edits update that person's page. Saved child relationships feed into the pedigree tree. Family sheets have their own searchable index;
 - **automatic family connections** on person pages: linked Family Group sheets show that person's parents or partners, children, and siblings, so relatives are easy to discover without manually maintaining a second list. People the current reader cannot access are shown as private;
 - a **person block** (`<person> ... </person>`) on each person's page: name, sex, born / birthplace, died / deathplace, `father`, `mother`
   (page names, resolved like links in the same section) and `living`. It's shown as a small card on the page;
 - a **guided ancestor form**: `{{pedigree>genealogy:jane_doe}}` (add `?4` for a different number of generations). It shows one generation at a time, keeps progress across steps, and lets you save partial work. It lists the
   person, parents, grandparents, great-grandparents and 2nd great-grandparents one generation after another, so it flows vertically
   and works in a narrow window. Every person has name, born, birthplace, died, place of death and a **Living** checkbox.
-  Type a name to unlock the next generation, then press **Save changes**. One save validates everything first and applies nothing if
-  something is wrong, then creates a page for each new person (with history), links them as father or mother, and updates anyone you edited.
+  Search for and select existing relatives to link them without changing their person pages, or enter a new name to create a page. Type a name to unlock the next generation, then press **Save changes**. One save validates everything first and applies nothing if
+  something is wrong, then creates pages for new people, links selected existing people as father or mother, and updates anyone you edited.
 New person pages include the form automatically; `genealogy:chart` has a person picker, and the Genealogy start page has a searchable people directory.
 `genealogy:families:start` is the Family Groups workspace.
 - a **Tree** view (the link above the form, or `?tree`): the traditional landscape chart with the standard numbering (1 = root, 2 = father,

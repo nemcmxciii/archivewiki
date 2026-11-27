@@ -203,10 +203,34 @@ class helper_plugin_awgenealogy extends Plugin
             $id = $item['id'];
             if (noNS($id) === 'start' || noNS($id) === 'chart' || noNS($id) === 'chart_blank') continue;
             $p = $this->getPerson($id);
-            if ($p && empty($p['private'])) $people[$id] = $p['fields']['name'];
+            if ($p && empty($p['private']) && $this->findBlock(rawWiki($id))) {
+                $people[$id] = $p['fields']['name'];
+            }
         }
         asort($people, SORT_NATURAL | SORT_FLAG_CASE);
         return $people;
+    }
+
+    private function personPickerData($editableOnly = false)
+    {
+        $people = [];
+        foreach ($this->allPeople() as $id => $name) {
+            if ($editableOnly && auth_quickaclcheck($id) < AUTH_EDIT) continue;
+            $block = $this->findBlock(rawWiki($id));
+            if (!$block) continue;
+            $fields = $block['fields'];
+            $people[] = [
+                'id' => $id,
+                'name' => $fields['name'] ?? $name,
+                'born' => $fields['born'] ?? '',
+                'birthplace' => $fields['birthplace'] ?? '',
+                'died' => $fields['died'] ?? '',
+                'deathplace' => $fields['deathplace'] ?? '',
+                'sex' => $fields['sex'] ?? '',
+            ];
+        }
+        $json = json_encode($people, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT | JSON_INVALID_UTF8_SUBSTITUTE);
+        return hsc($json === false ? '[]' : $json);
     }
 
     public function allFamilies()
@@ -325,14 +349,33 @@ class helper_plugin_awgenealogy extends Plugin
             hsc($name) . '" rows="4" placeholder="' . hsc($placeholder) . '">' . hsc($value) . '</textarea></label>';
     }
 
+    private function personLookupHtml($name, $idName, $label, $value, $id, $hint, $linkOnly = false, $disabled = false)
+    {
+        $disabledAttr = $disabled ? ' disabled="disabled"' : '';
+        return '<div class="awg-person-lookup" data-link-only="' . ($linkOnly ? 'true' : 'false') . '">' .
+            '<input type="hidden" class="awg-person-id" name="' . hsc($idName) . '" value="' . hsc($id) . '"' . $disabledAttr . ' />' .
+            '<div class="awg-person-control"><label class="awg-family-field"><span>' . hsc($label) .
+            '</span><input type="text" class="awg-person-input" name="' . hsc($name) . '" value="' . hsc($value) .
+            '" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false"' . $disabledAttr . ' /></label>' .
+            '<div class="awg-person-suggestions" role="listbox" hidden></div></div>' .
+            '<p class="awg-person-message" role="status">' . hsc($hint) . '</p>' .
+            '<button type="button" class="button awg-person-clear" hidden' . $disabledAttr . '>Clear person selection</button></div>';
+    }
+
     private function familyMemberInput($role, $label, $ref, $fromId)
     {
         $id = $this->resolveRef($ref, $fromId);
         $person = $id !== '' ? $this->getPerson($id) : null;
         $f = $person['fields'] ?? [];
         $html = '<fieldset class="awg-family-member"><legend>' . hsc($label) . '</legend>' .
-            '<input type="hidden" name="' . $role . '[id]" value="' . hsc($id) . '" />' .
-            $this->familyInput($role . '[name]', 'Full name', $f['name'] ?? '', 'Name') .
+            $this->personLookupHtml(
+                $role . '[name]',
+                $role . '[id]',
+                'Find or add a person',
+                $f['name'] ?? '',
+                $id,
+                'Choose a match to link an existing person. Otherwise, a new person page will be created when you save.'
+            ) .
             '<div class="awg-pair">' .
             $this->familyInput($role . '[born]', 'Born', $f['born'] ?? '', 'Year or date') .
             $this->familyInput($role . '[birthplace]', 'Birthplace', $f['birthplace'] ?? '') . '</div>' .
@@ -347,10 +390,15 @@ class helper_plugin_awgenealogy extends Plugin
         $id = $this->resolveRef($ref, $fromId);
         $person = $id !== '' ? $this->getPerson($id) : null;
         $f = $person['fields'] ?? [];
-        $html = '<div class="awg-child-row"><input type="hidden" name="children[' . $index . '][id]" value="' . hsc($id) . '" />' .
-            '<div class="awg-pair">' .
-            $this->familyInput('children[' . $index . '][name]', 'Child’s full name', $f['name'] ?? '', 'Name') .
-            $this->familyInput('children[' . $index . '][sex]', 'Sex (optional)', $f['sex'] ?? '', 'For example, F or M') . '</div>' .
+        $html = '<div class="awg-child-row">' .
+            $this->personLookupHtml(
+                'children[' . $index . '][name]',
+                'children[' . $index . '][id]',
+                'Find or add a child',
+                $f['name'] ?? '',
+                $id,
+                'Choose an existing person to link them, or enter a name to create a person page when you save.'
+            ) . $this->familyInput('children[' . $index . '][sex]', 'Sex (optional)', $f['sex'] ?? '', 'For example, F or M') .
             '<div class="awg-pair">' .
             $this->familyInput('children[' . $index . '][born]', 'Born', $f['born'] ?? '', 'Year or date') .
             $this->familyInput('children[' . $index . '][birthplace]', 'Birthplace', $f['birthplace'] ?? '') . '</div>' .
@@ -365,7 +413,7 @@ class helper_plugin_awgenealogy extends Plugin
     {
         $block = $isNew ? null : $this->findFamilyBlock(rawWiki($pageId));
         $f = $block['fields'] ?? [];
-        $html = '<div class="awg-family-editor"><p class="awg-family-intro">Enter the parents, marriage or partnership, and children for one family. You can save what you know now and return to it later.</p>' .
+        $html = '<div class="awg-family-editor" data-people="' . $this->personPickerData(true) . '"><p class="awg-family-intro">Enter the parents or partners and children for one family. Choose an existing person when possible; you can add missing details or return to this sheet later.</p>' .
             '<form class="awg-family-form" method="post" action="#">' .
             '<input type="hidden" name="call" value="awgenealogy" />' .
             '<input type="hidden" name="mode" value="' . ($isNew ? 'newfamily' : 'savefamily') . '" />' .
@@ -418,7 +466,7 @@ class helper_plugin_awgenealogy extends Plugin
             if (auth_quickaclcheck($child) < AUTH_EDIT) return '<div class="awg-box awg-void">' . $num . '</div>';
             $label = $slot['role'] === 'father' ? 'father' : 'mother';
             return '<div class="awg-box awg-empty" data-child="' . hsc($child) . '" data-role="' . $label . '">' . $num .
-                '<a href="#" class="awg-add">+ add ' . $label . '</a></div>';
+                    '<a href="#" class="awg-add">+ Add ' . $label . '</a></div>';
         }
 
         $id = $slot['id'];
@@ -530,7 +578,20 @@ class helper_plugin_awgenealogy extends Plugin
             '<legend><span class="awg-num">' . $n . '</span> ' . hsc($title) .
             ($path !== '' ? ' <small>' . hsc($path) . '</small>' : '') . '</legend>';
         if ($private) return $html . '<p class="awg-note">Private</p></fieldset>';
-        $html .= $in('name', 'Full name', $f['name'] ?? '', 'awg-f-name');
+        if ($person) {
+            $html .= $in('name', 'Full name', $f['name'] ?? '', 'awg-f-name');
+        } else {
+            $html .= $this->personLookupHtml(
+                $name . '[name]',
+                $name . '[person_id]',
+                'Find an existing person or enter a new name',
+                '',
+                '',
+                'Choose a match to link that person. If there is no match, saving will create a new person page.',
+                true,
+                $blocked
+            );
+        }
         $html .= '<div class="awg-pair">' . $in('born', 'Born', $f['born'] ?? '') . $in('birthplace', 'Birthplace', $f['birthplace'] ?? '') . '</div>';
         $html .= '<div class="awg-pair">' . $in('died', 'Died', $f['died'] ?? '') . $in('deathplace', 'Place of death', $f['deathplace'] ?? '') . '</div>';
         $html .= '<div class="awg-foot"><label class="awg-living"><input type="hidden" name="' . $name . '[living]" value="0"' . $dis . ' />' .
@@ -555,7 +616,8 @@ class helper_plugin_awgenealogy extends Plugin
         if ($map === null) {
             return '<p class="awg-note">Person page <code>' . hsc($rootId) . '</code> doesn\'t exist yet.</p>';
         }
-        $html = '<div class="awg-formwrap" data-root="' . hsc($rootId) . '" data-gens="' . (int)$gens . '" data-sectok="' . hsc(getSecurityToken()) . '">';
+        $html = '<div class="awg-formwrap" data-root="' . hsc($rootId) . '" data-gens="' . (int)$gens . '" data-sectok="' .
+            hsc(getSecurityToken()) . '" data-people="' . $this->personPickerData() . '">';
         $html .= $this->viewSwitch($pageId, 'form', $extra);
         $html .= '<p class="awg-step-intro">Start with the selected person. Add the relatives you know, one generation at a time. You can save now and return later.</p>';
         $html .= '<form class="awg-form" action="#" method="post" autocomplete="off"><div class="awg-msg" role="status" aria-live="polite"></div>';
@@ -583,8 +645,8 @@ class helper_plugin_awgenealogy extends Plugin
     {
         $people = $this->allPeople();
         if (!$people) {
-            return '<p class="awg-note">No people yet. Create a page in the <code>' . hsc($this->peopleNamespace()) .
-                '</code> section, for example <code>' . hsc($this->peopleNamespace()) . ':jane_doe</code>.</p>';
+            return '<p class="awg-note">No people have been added yet. Start at the <a href="' . hsc(wl('genealogy:start')) .
+                '">Genealogy page</a> to add the first person.</p>';
         }
         $html = '<form class="awg-picker" method="get" action="' . script() . '">' .
             '<input type="hidden" name="id" value="' . hsc($pageId) . '" />' .

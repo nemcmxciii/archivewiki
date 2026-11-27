@@ -3,5 +3,5 @@ author ArchiveWiki
 email  archivewiki@localhost
 date   2026-11-26
 name   ArchiveWiki Genealogy
-desc   Person pages, family connections, searchable directory and editable ancestor chart
+desc   Person search and linking, family group sheets, connections and ancestor charts
 url    https://github.com/nemcmxciii/archivewiki

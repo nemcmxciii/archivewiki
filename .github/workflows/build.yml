@@ -20,7 +20,7 @@ jobs:
         run: |
           for f in scripts/*.sh; do bash -n "$f"; done
           bash -n "Build ArchiveWiki.command"
-      - name: Test genealogy family connections
+      - name: Test genealogy workflows
         run: php scripts/test-genealogy.php
       - name: Verify lockfile
         run: cargo test --locked

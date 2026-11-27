@@ -1,0 +1,7 @@
+====== Pedigree Trees ======
+
+Choose the person whose ancestors you want to record. The form shows one generation at a time. Add the relatives you know, move forward when you are ready, and choose **Save changes** whenever you want to keep your progress. You can leave details blank and return later.
+
+Use **Tree** to view or print the pedigree. Start from the person you want in the center; this chart follows parents and earlier ancestors.
+
+{{pedigree>}}

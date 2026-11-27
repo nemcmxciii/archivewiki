@@ -45,6 +45,16 @@
 .awg-family-field textarea { resize: vertical; }
 .awg-child-rows { display: grid; grid-template-columns: repeat(auto-fit, minmax(19em, 1fr)); gap: .7em; }
 .awg-child-row { min-width: 0; padding: .65em; border: 1px solid __border__; border-radius: .4em; background: __background__; }
+.awg-person-lookup, .awg-person-control { position: relative; min-width: 0; }
+.awg-person-input { box-sizing: border-box; width: 100%; }
+.awg-person-suggestions { position: absolute; z-index: 20; top: 100%; right: 0; left: 0; max-height: 16em; overflow-y: auto; margin: -.1em 0 0; padding: .25em; border: 1px solid __border__; border-radius: .35em; background: __background__; box-shadow: 0 .25em .8em rgba(0, 0, 0, .18); }
+.awg-person-suggestions[hidden] { display: none; }
+.awg-person-option { width: 100%; padding: .45em .55em; border: 0; background: transparent; text-align: left; cursor: pointer; }
+.awg-person-option:hover, .awg-person-option:focus { background: __background_alt__; outline: 2px solid __theme_color__; outline-offset: -2px; }
+.awg-person-no-match { padding: .45em .55em; color: __text_alt__; }
+.awg-person-message { margin: .15em 0 .35em; color: __text_alt__; font-size: .82em; }
+.awg-person-clear { margin: 0 0 .4em; }
+.awg-person-input[readonly] { background: __background_alt__; }
 .awg-family-result.awg-bad { color: __missing__; }
 .awg-family-result.awg-good { color: __existing__; font-weight: 650; }
 .awg-family-directory { max-width: 56em; }
@@ -81,6 +91,9 @@ table.awg-pedigree td.awg-gen { padding: 0 .5em 0 0; vertical-align: middle; bor
 .awg-form input[type=text] { width: 100%; box-sizing: border-box; margin: .1em 0; }
 .awg-form .awg-row { display: flex; gap: .3em; }
 .awg-form .awg-row input { flex: 1; min-width: 0; }
+.awg-form .awg-person-lookup { margin: .3em 0 .6em; }
+.awg-form .awg-person-lookup .awg-family-field { margin: .25em 0; }
+.awg-form .awg-person-lookup .awg-family-field > span { font-size: .78em; }
 .awg-form .awg-err { color: __missing__; margin: .2em 0; }
 .awg-form button { margin-right: .3em; }
 

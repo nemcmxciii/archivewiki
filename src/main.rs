@@ -431,7 +431,7 @@ const BROKEN_JOURNAL_BUTTON_CARDS_CSS: &str = r#"
 "#;
 
 // Starter structure, installed on first run; new pages are added and untouched built-in pages may be refreshed.
-const STARTER_VERSION: u32 = 27;
+const STARTER_VERSION: u32 = 28;
 const STARTER: &[(&str, &str)] = &[
     ("data/pages/start.txt", include_str!("starter/start.txt")),
     ("data/pages/sidebar.txt", include_str!("starter/sidebar.txt")),
@@ -3623,6 +3623,16 @@ fn install_starter(wiki: &Path) {
                 include_str!("starter/genealogy_families_start.txt"),
             ),
             (
+                "data/pages/genealogy/families/start.txt",
+                include_str!("starter/legacy/genealogy_families_start_v27.txt"),
+                include_str!("starter/genealogy_families_start.txt"),
+            ),
+            (
+                "data/pages/genealogy/chart.txt",
+                include_str!("starter/legacy/genealogy_chart_v27.txt"),
+                include_str!("starter/genealogy_chart.txt"),
+            ),
+            (
                 "data/pages/portfolio/start.txt",
                 include_str!("starter/legacy/portfolio_start_v26.txt"),
                 include_str!("starter/portfolio_start.txt"),
@@ -3835,6 +3845,19 @@ const AWGENEALOGY_V2_HASHES: &[(&str, &str)] = &[
     ("syntax/pedigree.php", "3bc5624907770ac3b080655c9d2fcf79d2d05bfad85e645ed96ead9b99da0705"),
     ("syntax/person.php", "f3d1dc8286a2c65d71ef1e252c36ff277960446216bcf95bb93f583a7483129c"),
 ];
+const AWGENEALOGY_V3_HASHES: &[(&str, &str)] = &[
+    ("action.php", "7e7e5068db229baa78c04357c5c725f112726fc909303a1fc2d7bc9a8f809e7f"),
+    ("helper.php", "67f0b3d10387c40fee241966f8c6d6d1d5a910adbeb1e5e7db6fcde88365c0fa"),
+    ("plugin.info.txt", "3b1e4c6623f5b42e3efb29e9f4eb5017cbd63de78f6ce94b3cbd78f8cc233f9a"),
+    ("print.css", "5a93c3b14d911850c3e299b241310f644e7684dab1cbfa60f6af8b239013a471"),
+    ("script.js", "b9e548ff885eb081945b3b0f2fd75572bae7d9fa27576ded6f412f77983d753a"),
+    ("style.css", "bf583915552544f8c6dbdb5d738e274b204f54b1a4d6425d70032e8660f42ec0"),
+    ("syntax/directory.php", "2a4d51bbbc257f9fd590408ffb266a62e80c6a41cdfabcee9df6f8126f630ed9"),
+    ("syntax/familygroup.php", "2b3f3c283030574f90461df4bef0eb0206721b9dfa0545d3b827a23c165793c6"),
+    ("syntax/newperson.php", "993b11a382f96057887e3803ea6bba03395b6cc17cb8599342ef343b4e93d442"),
+    ("syntax/pedigree.php", "3bc5624907770ac3b080655c9d2fcf79d2d05bfad85e645ed96ead9b99da0705"),
+    ("syntax/person.php", "8c895dd3a703c52c78ec12cce0d45da157e1ef5121ced2a8769e2ef8d2736e90"),
+];
 const AWGENEALOGY_PRE_FAMILY_GROUP_HASHES: &[(&str, &str)] = &[
     ("action.php", "22035636a43cf5a585a64031c63dff2b941777b796207d992d82c8dae75ff29b"),
     ("helper.php", "ac6238f91dc6777119dcc8be1fc7f63c57bcd93d46847a5ff345b10cfe53b8cd"),
@@ -3893,7 +3916,8 @@ fn upgrade_unmodified_awgenealogy(src: &Path, dst: &Path, target_root: &Path) {
             }
         }
     }
-    let matches_known_release = plugin_matches_hash_snapshot(dst, &actual, AWGENEALOGY_V2_HASHES)
+    let matches_known_release = plugin_matches_hash_snapshot(dst, &actual, AWGENEALOGY_V3_HASHES)
+        || plugin_matches_hash_snapshot(dst, &actual, AWGENEALOGY_V2_HASHES)
         || plugin_matches_hash_snapshot(dst, &actual, AWGENEALOGY_PRE_FAMILY_GROUP_HASHES);
     if !matches_v1 && !matches_known_release {
         return;
