@@ -36,7 +36,10 @@ namespace {
     {
         $prefix = str_replace('/', ':', $namespace) . ':';
         foreach (array_keys($GLOBALS['archivewikiTestPages']) as $id) {
-            if (strpos($id, $prefix) === 0) $data[] = ['id' => $id];
+            if (strpos($id, $prefix) !== 0) continue;
+            $relative = substr($id, strlen($prefix));
+            if (($options['depth'] ?? null) === 0 && strpos($relative, ':') !== false) continue;
+            $data[] = ['id' => $id];
         }
     }
     function requireContains($text, $needle)
@@ -55,6 +58,7 @@ namespace {
         'genealogy:bob' => "<person>\nname: Bob Example\n</person>",
         'genealogy:child' => "<person>\nname: First Child\n</person>",
         'genealogy:sibling' => "<person>\nname: Second Child\n</person>",
+        'genealogy:legacy' => "====== Legacy Person ======\n\nA manually written person page.",
         'genealogy:families:example' => "<family>\ntitle: Example family\nfather: genealogy:alice\nmother: genealogy:bob\nchild_1: genealogy:child\nchild_2: genealogy:sibling\n</family>",
     ];
 
@@ -90,12 +94,17 @@ namespace {
         fwrite(STDERR, "Family group pages were included in the person picker.\n");
         exit(1);
     }
+    if (!isset($helper->allPeople()['genealogy:legacy']) || strpos($chartPicker, 'value="genealogy:legacy"') !== false) {
+        fwrite(STDERR, "Legacy person pages were not preserved in the directory or were added to the chart picker.\n");
+        exit(1);
+    }
 
     class TestPost
     {
         private $data;
         public function __construct(array $data) { $this->data = $data; }
         public function arr($name) { return $this->data[$name] ?? []; }
+        public function str($name) { return is_scalar($this->data[$name] ?? null) ? (string)$this->data[$name] : ''; }
         public function int($name, $default = 0) { return isset($this->data[$name]) ? (int)$this->data[$name] : $default; }
     }
     class TestInput
@@ -120,6 +129,20 @@ namespace {
     requireContains(rawWiki('genealogy:bob'), 'name: Bob Example');
 
     $GLOBALS['archivewikiTestPages']['genealogy:alice'] = $helper->setFields(rawWiki('genealogy:alice'), ['father' => '']);
+    $GLOBALS['archivewikiTestPages']['genealogy:bob'] = $helper->setFields(rawWiki('genealogy:bob'), ['father' => 'alice']);
+    $GLOBALS['INPUT'] = new TestInput([
+        'gens' => 2,
+        'p' => [2 => ['person_id' => 'genealogy:bob', 'name' => 'Bob Example']],
+    ]);
+    ob_start();
+    $saveForm->invoke($action, $helper, 'genealogy:alice');
+    $cycleResponse = json_decode(ob_get_clean(), true);
+    if (!empty($cycleResponse['ok']) || strpos(rawWiki('genealogy:alice'), 'father: bob') !== false) {
+        fwrite(STDERR, "An ancestor cycle was not rejected before chart changes were saved.\n");
+        exit(1);
+    }
+    $GLOBALS['archivewikiTestPages']['genealogy:bob'] = $helper->setFields(rawWiki('genealogy:bob'), ['father' => '']);
+
     $GLOBALS['INPUT'] = new TestInput([
         'gens' => 2,
         'p' => [
@@ -132,6 +155,24 @@ namespace {
     $duplicateResponse = json_decode(ob_get_clean(), true);
     if (!empty($duplicateResponse['ok']) || strpos(rawWiki('genealogy:alice'), 'father: bob') !== false) {
         fwrite(STDERR, "Duplicate people were not rejected before chart changes were saved.\n");
+        exit(1);
+    }
+
+    $GLOBALS['archivewikiTestPages']['genealogy:bob'] = $helper->setFields(rawWiki('genealogy:bob'), ['father' => 'alice']);
+    $familyBefore = rawWiki('genealogy:families:example');
+    $aliceBefore = rawWiki('genealogy:alice');
+    $GLOBALS['INPUT'] = new TestInput([
+        'title' => 'Example family',
+        'father' => ['id' => 'genealogy:bob', 'name' => 'Bob Example'],
+        'children' => [['id' => 'genealogy:alice', 'name' => 'Alice Example']],
+    ]);
+    $saveFamily = new \ReflectionMethod($action, 'saveFamily');
+    ob_start();
+    $saveFamily->invoke($action, $helper, 'genealogy:families:example', false);
+    $familyCycleResponse = json_decode(ob_get_clean(), true);
+    if (!empty($familyCycleResponse['ok']) || rawWiki('genealogy:families:example') !== $familyBefore ||
+        rawWiki('genealogy:alice') !== $aliceBefore) {
+        fwrite(STDERR, "A family group that creates an ancestry cycle was not rejected safely.\n");
         exit(1);
     }
 

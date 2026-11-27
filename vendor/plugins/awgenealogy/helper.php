@@ -168,6 +168,34 @@ class helper_plugin_awgenealogy extends Plugin
         return cleanID($page);
     }
 
+    /** Whether making $parentId a parent of $childId would create an ancestry cycle. */
+    public function wouldCreateAncestryCycle($parentId, $childId, array $plannedParents = [])
+    {
+        $parentId = cleanID($parentId);
+        $childId = cleanID($childId);
+        if ($parentId === '' || $childId === '') return false;
+
+        $pending = [$parentId];
+        $visited = [];
+        while ($pending) {
+            $id = array_pop($pending);
+            if ($id === $childId) return true;
+            if (isset($visited[$id])) continue;
+            $visited[$id] = true;
+
+            foreach ($plannedParents[$id] ?? [] as $plannedParent) {
+                if ($plannedParent !== '') $pending[] = $plannedParent;
+            }
+            $person = $this->getPerson($id);
+            if (!$person || !empty($person['private'])) continue;
+            foreach (['father', 'mother'] as $role) {
+                $ancestor = $this->resolveRef($person['fields'][$role] ?? '', $id);
+                if ($ancestor !== '') $pending[] = $ancestor;
+            }
+        }
+        return false;
+    }
+
     /**
      * Ahnentafel map for $gens generations: 1 = root, 2 = father, 3 = mother, 2n = father of n, 2n+1 = mother of n.
      * Each value: ['id', 'person'] or ['empty'=>true, 'child'=>id, 'role'=>'father'|'mother'].
@@ -203,9 +231,7 @@ class helper_plugin_awgenealogy extends Plugin
             $id = $item['id'];
             if (noNS($id) === 'start' || noNS($id) === 'chart' || noNS($id) === 'chart_blank') continue;
             $p = $this->getPerson($id);
-            if ($p && empty($p['private']) && $this->findBlock(rawWiki($id))) {
-                $people[$id] = $p['fields']['name'];
-            }
+            if ($p && empty($p['private'])) $people[$id] = $p['fields']['name'];
         }
         asort($people, SORT_NATURAL | SORT_FLAG_CASE);
         return $people;
@@ -643,7 +669,10 @@ class helper_plugin_awgenealogy extends Plugin
 
     public function pickerHtml($pageId)
     {
-        $people = $this->allPeople();
+        $people = [];
+        foreach ($this->allPeople() as $id => $name) {
+            if ($this->findBlock(rawWiki($id))) $people[$id] = $name;
+        }
         if (!$people) {
             return '<p class="awg-note">No people have been added yet. Start at the <a href="' . hsc(wl('genealogy:start')) .
                 '">Genealogy page</a> to add the first person.</p>';

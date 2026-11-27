@@ -199,6 +199,17 @@ class action_plugin_awgenealogy extends ActionPlugin
                 if ($child) $children[] = $child;
             }
         }
+        $plannedParents = [];
+        foreach ($children as $child) {
+            foreach (['father', 'mother'] as $role) {
+                if (!isset($members[$role])) continue;
+                $parentId = $members[$role]['id'];
+                if ($h->wouldCreateAncestryCycle($parentId, $child['id'], $plannedParents)) {
+                    return $this->reply(false, 'This family group would create a circular parent relationship.');
+                }
+                $plannedParents[$child['id']][] = $parentId;
+            }
+        }
         $familyFields = [
             'title' => $title,
             'father' => $members['father']['id'] ?? '',
@@ -270,6 +281,7 @@ class action_plugin_awgenealogy extends ActionPlugin
         $ops = [];
         $errors = [];
         $slotId = [];
+        $plannedParents = [];
         $reserved = [$rootId => true];
         foreach ($map as $slot) {
             if (isset($slot['id'], $slot['person']) && empty($slot['person']['private'])) {
@@ -326,8 +338,13 @@ class action_plugin_awgenealogy extends ActionPlugin
                     $errors[$n] = 'The previous generation\'s page can\'t be edited right now.';
                     continue;
                 }
+                if ($h->wouldCreateAncestryCycle($personId, $childId, $plannedParents)) {
+                    $errors[$n] = 'This person would create a circular parent relationship.';
+                    continue;
+                }
                 $reserved[$personId] = true;
                 $slotId[$n] = $personId;
+                $plannedParents[$childId][] = $personId;
                 $ops[] = ['type' => 'link', 'id' => $personId, 'child' => $childId,
                           'role' => ($n % 2 === 0) ? 'father' : 'mother'];
                 continue;
@@ -347,8 +364,13 @@ class action_plugin_awgenealogy extends ActionPlugin
                 $errors[$n] = 'The previous generation\'s page can\'t be edited right now.';
                 continue;
             }
+            if ($h->wouldCreateAncestryCycle($new, $childId, $plannedParents)) {
+                $errors[$n] = 'This person would create a circular parent relationship.';
+                continue;
+            }
             $reserved[$new] = true;
             $slotId[$n] = $new;
+            $plannedParents[$childId][] = $new;
             $fields = $vals;
             unset($fields['name']);
             $fields['living'] = $this->livingFor($vals, $in);
