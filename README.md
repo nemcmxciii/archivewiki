@@ -120,7 +120,7 @@ Who may save follows DokuWiki's permissions. Person details stay in the page's `
 **Living:** a person with a death date, or born more than 110 years ago, is saved as
 not living. Otherwise the checkbox decides, and it starts ticked for the person and their parents and unticked for older generations,
 so you will not share someone who may still be alive by mistake. Marriages, siblings and multiple spouses aren't modelled yet; the chart
-follows only the father and mother links.
+follows only the father and mother links. Family Group and chart saves reject parent links that would create circular ancestry.
 
 ## Bundled plugins
 These DokuWiki plugins ship inside the app and are copied into your wiki once, on first launch (or the first launch after
