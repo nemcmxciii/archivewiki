@@ -40,6 +40,8 @@ jobs:
           cargo --version
       - name: 1 - Fetch DokuWiki and PHP
         run: bash scripts/fetch-deps.sh
+      - name: Test loopback router
+        run: bash scripts/test-router.sh
       - name: 2 - Compile (Rust)
         run: cargo build --release --locked --verbose
       - name: 3 - Bundle app and dmg

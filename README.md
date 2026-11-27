@@ -46,7 +46,9 @@ overrides.
 - **File → Manage Wikis** lets you create, import, switch, and rename wikis, or delete an inactive custom wiki. Deletion permanently removes that wiki's pages and settings, but leaves its existing backup archives in Documents; the built-in Default Wiki is protected, and you must switch away from a wiki before deleting it. Renaming also updates the wiki's backup folder. Only one wiki is open at a time; switching reopens the app, and each wiki has separate DokuWiki login sessions and recent pages. The existing wiki stays at `Application Support/ArchiveWiki/wiki/`; additional wikis live in `Application Support/ArchiveWiki/wikis/`.
 - Upgrades (new bundled DokuWiki version) overwrite program files but never existing files in `data/`.
 - PHP runs as `php -S 127.0.0.1:47631` (falls back to a free port) with 4 workers, behind `router.php`, which blocks
-  `data/ conf/ bin/ inc/ vendor/`, dotfiles, and non-loopback Host headers.
+  `data/ conf/ bin/ inc/ vendor/`, dotfiles, and non-loopback Host headers. While ArchiveWiki is running, its
+  one-time DokuWiki password-reset links can also be opened in an external browser; only the reset endpoint and
+  narrowly scoped reset-page assets are allowed without the app's per-launch session.
 - Same-origin pop-up windows (including DokuWiki's media manager) open inside ArchiveWiki; external links open in your default browser. Downloads go to `~/Downloads`.
 - Home offers a title-based page creation flow and lists your 8 most recently visited pages; recent pages are stored on
   this Mac, kept separate for each wiki, and can be cleared there. If a title already exists, it opens without editing.
