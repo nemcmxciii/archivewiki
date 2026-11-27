@@ -3254,6 +3254,133 @@ fn active_wiki_profile(support: &Path) -> Result<WikiProfile> {
         .ok_or_else(|| anyhow!("The default wiki profile is unavailable."))
 }
 
+fn write_profile_name(profile: &WikiProfile, name: &str) -> Result<()> {
+    let temp = profile.root.join(format!(".name-{}", random_token()));
+    let result = (|| -> Result<()> {
+        fs::write(&temp, name)?;
+        fs::rename(&temp, profile.root.join("name"))?;
+        Ok(())
+    })();
+    if result.is_err() {
+        let _ = fs::remove_file(temp);
+    }
+    result
+}
+
+fn move_backup_directory(old: &Path, new: &Path) -> Result<()> {
+    if !old.exists() || fs::canonicalize(old).ok() == fs::canonicalize(new).ok() {
+        return Ok(());
+    }
+    if !new.exists() {
+        fs::rename(old, new).context("could not update the wiki's backup folder name")?;
+        return Ok(());
+    }
+    if !old.is_dir() || !new.is_dir() {
+        bail!("A wiki backup folder exists at an unexpected path.");
+    }
+
+    let mut entries = fs::read_dir(old)?.collect::<std::io::Result<Vec<_>>>()?;
+    entries.sort_by_key(|entry| entry.file_name());
+    if entries.iter().any(|entry| !entry.file_type().map(|kind| kind.is_file()).unwrap_or(false)) {
+        bail!("The wiki backup folder contains an unexpected subfolder or file type and cannot be safely renamed.");
+    }
+
+    let mut moved = Vec::new();
+    for entry in entries {
+        let source = entry.path();
+        let destination = unique_path(new.join(entry.file_name()));
+        if let Err(error) = fs::rename(&source, &destination) {
+            let rollback_errors = moved
+                .iter()
+                .filter_map(|(from, to): &(PathBuf, PathBuf)| fs::rename(to, from).err())
+                .collect::<Vec<_>>();
+            if rollback_errors.is_empty() {
+                return Err(error).context("could not move the wiki's existing backups");
+            }
+            bail!("Could not move the wiki's existing backups ({error}); some files could not be moved back: {}", rollback_errors[0]);
+        }
+        moved.push((source, destination));
+    }
+    if let Err(error) = fs::remove_dir(old) {
+        let rollback_errors = moved
+            .iter()
+            .filter_map(|(from, to): &(PathBuf, PathBuf)| fs::rename(to, from).err())
+            .collect::<Vec<_>>();
+        if rollback_errors.is_empty() {
+            return Err(error).context("could not remove the old wiki backup folder");
+        }
+        bail!("Could not remove the old wiki backup folder ({error}); some backups could not be moved back: {}", rollback_errors[0]);
+    }
+    Ok(())
+}
+
+fn rename_wiki_profile(
+    support: &Path,
+    profile_id: &str,
+    new_name: &str,
+    backups_root: Option<&Path>,
+) -> Result<WikiProfile> {
+    let new_name = validate_wiki_name(new_name)?;
+    let mut profiles = wiki_profiles(support)?;
+    let index = profiles
+        .iter()
+        .position(|profile| profile.id == profile_id)
+        .ok_or_else(|| anyhow!("The selected wiki could not be found."))?;
+    let profile = profiles[index].clone();
+    if profiles.iter().any(|other| other.id != profile.id && other.name.eq_ignore_ascii_case(&new_name)) {
+        bail!("A wiki named \"{new_name}\" already exists. Choose a different name.");
+    }
+    if profile.name == new_name {
+        return Ok(profile);
+    }
+
+    let _guard = WIKI_IO_LOCK.lock().map_err(|_| anyhow!("Wiki file operation lock is poisoned"))?;
+    write_profile_name(&profile, &new_name)?;
+    if profile.id != DEFAULT_WIKI_ID {
+        let migration = (|| -> Result<()> {
+            let root = backups_root.ok_or_else(|| anyhow!("Cannot locate the wiki backup folder."))?;
+            let old = root.join(profile_folder_name_for(&profile.name, &profile.id));
+            let new = root.join(profile_folder_name_for(&new_name, &profile.id));
+            move_backup_directory(&old, &new)
+        })();
+        if let Err(error) = migration {
+            let rollback = write_profile_name(&profile, &profile.name);
+            return match rollback {
+                Ok(()) => Err(error),
+                Err(rollback_error) => bail!(
+                    "The wiki was renamed, but its backup folder could not be updated ({error}) and the old name could not be restored ({rollback_error})."
+                ),
+            };
+        }
+    }
+    profiles[index].name = new_name;
+    Ok(profiles.remove(index))
+}
+
+fn delete_wiki_profile(support: &Path, profile_id: &str, active_profile_id: &str) -> Result<()> {
+    if profile_id == DEFAULT_WIKI_ID {
+        bail!("The built-in Default Wiki is protected and cannot be deleted.");
+    }
+    if profile_id == active_profile_id {
+        bail!("Switch to another wiki before deleting this one.");
+    }
+    if !valid_wiki_profile_id(profile_id) {
+        bail!("The selected wiki has an invalid profile identifier.");
+    }
+    let root = support.join("wikis").join(profile_id);
+    let profiles = wiki_profiles(support)?;
+    let profile = profiles
+        .iter()
+        .find(|profile| profile.id == profile_id)
+        .ok_or_else(|| anyhow!("The selected wiki could not be found."))?;
+    if profile.root != root || profile.wiki != root.join("wiki") {
+        bail!("The selected wiki profile is not stored in its expected location.");
+    }
+
+    let _guard = WIKI_IO_LOCK.lock().map_err(|_| anyhow!("Wiki file operation lock is poisoned"))?;
+    fs::remove_dir_all(root).context("could not delete the selected wiki")
+}
+
 fn resource_dir() -> Result<PathBuf> {
     if let Ok(p) = std::env::var("DWA_RESOURCES") {
         return Ok(p.into());
@@ -4373,8 +4500,12 @@ fn backup_root() -> Result<PathBuf> {
     Ok(dirs::document_dir().ok_or_else(|| anyhow!("Cannot locate ~/Documents"))?.join("ArchiveWiki Backups"))
 }
 
+fn profile_folder_name_for(name: &str, id: &str) -> String {
+    format!("{name} [{id}]")
+}
+
 fn profile_folder_name(l: &Layout) -> String {
-    format!("{} [{}]", l.profile_name, l.profile_id)
+    profile_folder_name_for(&l.profile_name, &l.profile_id)
 }
 
 fn backup_dir(l: &Layout) -> Result<PathBuf> {
@@ -4868,6 +4999,37 @@ fn prompt_wiki_name(importing: bool) -> Result<Option<String>> {
     Ok(Some(String::from_utf8_lossy(&out.stdout).trim().to_string()))
 }
 
+fn prompt_wiki_rename(profile: &WikiProfile) -> Result<Option<String>> {
+    let script = format!(
+        "text returned of (display dialog \"Choose a new name for this wiki:\" with title \"{APP_NAME}\" default answer \"{}\" buttons {{\"Cancel\", \"Save\"}} default button \"Save\" cancel button \"Cancel\")",
+        esc(&profile.name)
+    );
+    let out = Command::new("osascript").args(["-e", &script]).output().context("could not open the wiki rename prompt")?;
+    if !out.status.success() {
+        return Ok(None);
+    }
+    Ok(Some(String::from_utf8_lossy(&out.stdout).trim().to_string()))
+}
+
+fn confirm_delete_wiki(profile: &WikiProfile) -> Result<bool> {
+    let message = format!(
+        "Permanently delete \"{}\" and its pages, settings, and profile files?\n\nExisting backup archives in Documents will be kept. This action cannot be undone.",
+        profile.name
+    );
+    let script = format!(
+        "display dialog \"{}\" with title \"{APP_NAME}\" buttons {{\"Delete Wiki\", \"Cancel\"}} default button \"Cancel\" cancel button \"Cancel\" with icon caution",
+        esc(&message)
+    );
+    let out = Command::new("osascript").args(["-e", &script]).output().context("could not confirm wiki deletion")?;
+    if !out.status.success() {
+        if out.status.code() == Some(1) {
+            return Ok(false);
+        }
+        bail!("The wiki deletion confirmation could not be displayed.");
+    }
+    Ok(String::from_utf8_lossy(&out.stdout).contains("button returned:Delete Wiki"))
+}
+
 fn create_wiki_flow(l: &Layout, proxy: &EventLoopProxy<UserEvent>, importing: bool, startup: bool) -> Result<()> {
     let Some(name) = prompt_wiki_name(importing)? else { return Ok(()) };
     let import = if importing {
@@ -5076,6 +5238,8 @@ fn build_menu(
         &MenuItem::with_id("newwiki", "New Wiki…", true, None),
         &MenuItem::with_id("importwiki", "Import Backup as New Wiki…", true, None),
         &MenuItem::with_id("switchwiki", "Switch Wiki…", true, None),
+        &MenuItem::with_id("renamewiki", "Rename Wiki…", true, None),
+        &MenuItem::with_id("deletewiki", "Delete Wiki…", true, None),
         &PredefinedMenuItem::separator(),
         &MenuItem::with_id("wikisfolder", "Show Wikis Folder in Finder", true, None),
     ])?;
@@ -5517,6 +5681,56 @@ fn run() -> Result<()> {
                         Err(e) => alert(&format!("The wiki chooser could not be opened.\n\n{e:#}")),
                     }
                 }
+                "renamewiki" => match choose_wiki_profile(&layout) {
+                    Ok(Some(profile)) => match prompt_wiki_rename(&profile) {
+                        Ok(Some(name)) => {
+                            let backups_root = if profile.id == DEFAULT_WIKI_ID {
+                                Ok(None)
+                            } else {
+                                backup_root().map(Some)
+                            };
+                            match backups_root {
+                                Ok(backups_root) => match rename_wiki_profile(
+                                    &layout.support,
+                                    &profile.id,
+                                    &name,
+                                    backups_root.as_deref(),
+                                ) {
+                                    Ok(renamed) => {
+                                        if renamed.id == layout.profile_id {
+                                            layout.profile_name = renamed.name.clone();
+                                        }
+                                        info(&format!("This wiki is now named \"{}\".", renamed.name));
+                                    }
+                                    Err(e) => alert(&format!("The wiki could not be renamed.\n\n{e:#}")),
+                                },
+                                Err(e) => alert(&format!("The wiki backup folder could not be located.\n\n{e:#}")),
+                            }
+                        }
+                        Ok(None) => {}
+                        Err(e) => alert(&format!("The wiki rename prompt could not be opened.\n\n{e:#}")),
+                    },
+                    Ok(None) => {}
+                    Err(e) => alert(&format!("The wiki chooser could not be opened.\n\n{e:#}")),
+                },
+                "deletewiki" => match choose_wiki_profile(&layout) {
+                    Ok(Some(profile)) if profile.id == DEFAULT_WIKI_ID => {
+                        alert("The built-in Default Wiki is protected and cannot be deleted.");
+                    }
+                    Ok(Some(profile)) if profile.id == layout.profile_id => {
+                        alert("Switch to another wiki before deleting this one.");
+                    }
+                    Ok(Some(profile)) => match confirm_delete_wiki(&profile) {
+                        Ok(true) => match delete_wiki_profile(&layout.support, &profile.id, &layout.profile_id) {
+                            Ok(()) => info(&format!("\"{}\" was deleted. Its existing backup archives were kept.", profile.name)),
+                            Err(e) => alert(&format!("The wiki could not be deleted.\n\n{e:#}")),
+                        },
+                        Ok(false) => {}
+                        Err(e) => alert(&format!("The deletion confirmation could not be shown.\n\n{e:#}")),
+                    },
+                    Ok(None) => {}
+                    Err(e) => alert(&format!("The wiki chooser could not be opened.\n\n{e:#}")),
+                },
                 "wikisfolder" => {
                     let _ = Command::new("open").arg(layout.support.join("wikis")).spawn();
                 }
@@ -5653,9 +5867,9 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::{
-        active_wiki_profile, app_path, initial_wiki_route, profile_session_name, recent_pages_storage_key,
-        release_asset_sha256_from_json, startup_action, unique_path, validate_wiki_name, wiki_profiles,
-        wiki_url_with_session_token, STARTUP_HTML,
+        active_wiki_profile, app_path, delete_wiki_profile, initial_wiki_route, profile_session_name,
+        recent_pages_storage_key, release_asset_sha256_from_json, rename_wiki_profile, startup_action,
+        unique_path, validate_wiki_name, wiki_profiles, wiki_url_with_session_token, STARTUP_HTML,
     };
 
     #[test]
@@ -5717,6 +5931,60 @@ mod tests {
             profile_session_name("wiki-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa").unwrap(),
             profile_session_name("wiki-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb").unwrap()
         );
+    }
+
+    #[test]
+    fn renaming_a_wiki_updates_its_backup_folder_and_keeps_backups() {
+        let support = std::env::temp_dir().join(format!("archivewiki-rename-{}", super::random_token()));
+        let backups = support.join("backups");
+        let profile_id = format!("wiki-{}", "a".repeat(32));
+        let profile_root = support.join("wikis").join(&profile_id);
+        std::fs::create_dir_all(profile_root.join("wiki")).unwrap();
+        std::fs::write(profile_root.join("wiki").join("doku.php"), "<?php").unwrap();
+        std::fs::write(profile_root.join("name"), "Research").unwrap();
+        let old_backup_dir = backups.join(super::profile_folder_name_for("Research", &profile_id));
+        std::fs::create_dir_all(&old_backup_dir).unwrap();
+        std::fs::write(old_backup_dir.join("wiki-backup.zip"), b"keep this backup").unwrap();
+        let new_backup_dir = backups.join(super::profile_folder_name_for("Field Notes", &profile_id));
+        std::fs::create_dir_all(&new_backup_dir).unwrap();
+        std::fs::write(new_backup_dir.join("wiki-backup.zip"), b"keep the other backup").unwrap();
+        let other_id = format!("wiki-{}", "c".repeat(32));
+        let other_root = support.join("wikis").join(&other_id);
+        std::fs::create_dir_all(other_root.join("wiki")).unwrap();
+        std::fs::write(other_root.join("wiki").join("doku.php"), "<?php").unwrap();
+        std::fs::write(other_root.join("name"), "Planning").unwrap();
+
+        assert!(rename_wiki_profile(&support, &profile_id, "planning", Some(&backups)).is_err());
+        let renamed = rename_wiki_profile(&support, &profile_id, "Field Notes", Some(&backups)).unwrap();
+        assert_eq!(renamed.name, "Field Notes");
+        assert_eq!(std::fs::read_to_string(profile_root.join("name")).unwrap(), "Field Notes");
+        assert!(!old_backup_dir.exists());
+        assert_eq!(std::fs::read(new_backup_dir.join("wiki-backup.zip")).unwrap(), b"keep the other backup");
+        assert_eq!(std::fs::read(new_backup_dir.join("wiki-backup (1).zip")).unwrap(), b"keep this backup");
+        assert!(rename_wiki_profile(&support, &profile_id, "field notes", Some(&backups)).is_ok());
+
+        std::fs::remove_dir_all(support).unwrap();
+    }
+
+    #[test]
+    fn deleting_a_wiki_protects_the_default_and_active_profiles_and_keeps_backups() {
+        let support = std::env::temp_dir().join(format!("archivewiki-delete-{}", super::random_token()));
+        let profile_id = format!("wiki-{}", "b".repeat(32));
+        let profile_root = support.join("wikis").join(&profile_id);
+        std::fs::create_dir_all(profile_root.join("wiki")).unwrap();
+        std::fs::write(profile_root.join("wiki").join("doku.php"), "<?php").unwrap();
+        std::fs::write(profile_root.join("name"), "Temporary").unwrap();
+        let backup_dir = support.join("backups").join("Temporary backup");
+        std::fs::create_dir_all(&backup_dir).unwrap();
+        std::fs::write(backup_dir.join("archive.zip"), b"keep this backup").unwrap();
+
+        assert!(delete_wiki_profile(&support, "default", &profile_id).is_err());
+        assert!(delete_wiki_profile(&support, &profile_id, &profile_id).is_err());
+        assert!(delete_wiki_profile(&support, &profile_id, "default").is_ok());
+        assert!(!profile_root.exists());
+        assert_eq!(std::fs::read(backup_dir.join("archive.zip")).unwrap(), b"keep this backup");
+
+        std::fs::remove_dir_all(support).unwrap();
     }
 
     #[test]
