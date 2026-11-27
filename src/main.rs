@@ -345,6 +345,47 @@ const APP_UI_SCRIPT: &str = r##"
   }
 })();
 "##;
+const STARTUP_HTML: &str = r##"<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Welcome to ArchiveWiki</title>
+<style>
+  :root { color-scheme: light dark; font: 16px -apple-system, BlinkMacSystemFont, sans-serif; }
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #f4f6f8; color: #17212b; }
+  main { width: min(520px, calc(100% - 40px)); padding: 36px; box-sizing: border-box; border-radius: 16px; background: #fff; box-shadow: 0 12px 40px #17212b20; }
+  h1 { margin: 0 0 8px; font-size: 28px; }
+  p { color: #526170; line-height: 1.5; margin: 0 0 24px; }
+  nav { display: grid; gap: 12px; }
+  a { display: block; padding: 14px 16px; border: 1px solid #cbd4dd; border-radius: 10px; color: inherit; text-decoration: none; font-weight: 600; }
+  a:hover, a:focus-visible { border-color: #0969da; outline: 2px solid #0969da40; }
+  a.primary { color: white; background: #0969da; border-color: #0969da; }
+  small { display: block; margin-top: 20px; color: #667583; line-height: 1.4; }
+  @media (prefers-color-scheme: dark) {
+    body { background: #161b22; color: #e6edf3; }
+    main { background: #21262d; box-shadow: 0 12px 40px #0008; }
+    p, small { color: #9da7b3; }
+    a { border-color: #444c56; }
+    a.primary { background: #1f6feb; border-color: #1f6feb; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>Welcome to ArchiveWiki</h1>
+  <p>Choose an existing wiki on this Mac, or start a separate one.</p>
+  <nav aria-label="Wiki actions">
+    <a class="primary" href="archivewiki://startup/login">Log in to an existing wiki</a>
+    <a href="archivewiki://startup/create">Create a new wiki</a>
+    <a href="archivewiki://startup/import">Import a backup as a new wiki</a>
+    <a href="archivewiki://startup/continue">Continue with the last wiki</a>
+    <a href="archivewiki://startup/quit">Quit ArchiveWiki</a>
+  </nav>
+  <small>Existing wiki means a wiki stored on this Mac. Connecting to a hosted wiki is not supported yet.</small>
+</main>
+</body>
+</html>"##;
 const JOURNAL_BUTTONS_CSS: &str = r#"
 /* ArchiveWiki journal action buttons */
 .wrap_aw-journal-actions { display: flex; flex-wrap: wrap; gap: .7rem; margin: 1.2rem 0; }
@@ -2988,6 +3029,9 @@ fn release_asset_sha256_from_json(body: &str, asset_name: &str) -> Result<String
 #[derive(Debug)]
 enum UserEvent {
     Menu(MenuEvent),
+    StartupAction(String),
+    StartupProfileSelected(Result<Option<WikiProfile>, String>),
+    StartupWikiCreated(Result<WikiProfile, String>),
     /// The user chose a backup zip to restore (already validated and confirmed).
     RestoreBackup { profile_id: String, zip: PathBuf },
     /// A new or imported wiki has been prepared and is ready to open.
@@ -3715,6 +3759,14 @@ fn start_url(l: &Layout, origin: &str) -> String {
 
 fn login_url(l: &Layout, origin: &str) -> String {
     format!("{origin}{}?aw={}", initial_wiki_route(l.wiki.join("conf").join("local.php").exists(), true), l.token)
+}
+
+fn startup_action(url: &str, startup_page: bool) -> Option<&str> {
+    if !startup_page {
+        return None;
+    }
+    let action = url.strip_prefix("archivewiki://startup/")?;
+    matches!(action, "login" | "create" | "import" | "continue" | "quit").then_some(action)
 }
 
 fn initial_wiki_route(configured: bool, login: bool) -> &'static str {
@@ -4803,7 +4855,7 @@ fn prompt_wiki_name(importing: bool) -> Result<Option<String>> {
     Ok(Some(String::from_utf8_lossy(&out.stdout).trim().to_string()))
 }
 
-fn create_wiki_flow(l: &Layout, proxy: &EventLoopProxy<UserEvent>, importing: bool) -> Result<()> {
+fn create_wiki_flow(l: &Layout, proxy: &EventLoopProxy<UserEvent>, importing: bool, startup: bool) -> Result<()> {
     let Some(name) = prompt_wiki_name(importing)? else { return Ok(()) };
     let import = if importing {
         let Some(zip) = pick_zip("Choose an ArchiveWiki backup to import", Some(backup_root()?))? else { return Ok(()) };
@@ -4814,9 +4866,19 @@ fn create_wiki_flow(l: &Layout, proxy: &EventLoopProxy<UserEvent>, importing: bo
     let (l, proxy) = (l.clone(), proxy.clone());
     thread::spawn(move || {
         let result = create_wiki_profile(&l, &name, import.as_deref()).map_err(|e| format!("{e:#}"));
-        let _ = proxy.send_event(UserEvent::WikiCreated(result));
+        let event = if startup { UserEvent::StartupWikiCreated(result) } else { UserEvent::WikiCreated(result) };
+        let _ = proxy.send_event(event);
     });
     Ok(())
+}
+
+fn choose_existing_wiki_flow(l: &Layout, proxy: &EventLoopProxy<UserEvent>) {
+    let l = l.clone();
+    let proxy = proxy.clone();
+    thread::spawn(move || {
+        let result = choose_wiki_profile(&l).map_err(|e| format!("{e:#}"));
+        let _ = proxy.send_event(UserEvent::StartupProfileSelected(result));
+    });
 }
 
 fn choose_wiki_profile(l: &Layout) -> Result<Option<WikiProfile>> {
@@ -4843,73 +4905,22 @@ fn choose_wiki_profile(l: &Layout) -> Result<Option<WikiProfile>> {
         .ok_or_else(|| anyhow!("The selected wiki could not be found in the profile list."))
 }
 
-fn choose_startup_wiki(l: &Layout) -> Result<Option<(WikiProfile, bool)>> {
-    const CONTINUE: &str = "Continue with Last Wiki";
-    const LOGIN: &str = "Log In to an Existing Wiki…";
-    const CREATE: &str = "Create a New Wiki…";
-    const IMPORT: &str = "Import a Backup as a New Wiki…";
-    const QUIT: &str = "Quit ArchiveWiki";
-
-    let profiles = wiki_profiles(&l.support)?;
-    let mut choices = Vec::new();
-    if profiles.iter().any(|profile| profile.id == l.profile_id && profile.wiki.join("doku.php").is_file()) {
-        choices.push(CONTINUE);
-    }
-    if profiles.iter().any(|profile| profile.wiki.join("doku.php").is_file()) {
-        choices.push(LOGIN);
-    }
-    choices.extend([CREATE, IMPORT, QUIT]);
-    let list = choices.iter().map(|choice| format!("\"{}\"", esc(choice))).collect::<Vec<_>>().join(", ");
-    let prompt = "Choose a wiki on this Mac to open, or create/import one.\nRemote wiki connections aren't supported yet.";
-    let default_item = if choices.contains(&CONTINUE) {
-        format!(" default items {{\"{CONTINUE}\"}}")
-    } else {
-        String::new()
-    };
-    let script = format!(
-        "choose from list {{{list}}} with prompt \"{}\"{default_item} with title \"{APP_NAME}\"",
-        esc(prompt),
-    );
-    let out = Command::new("osascript").args(["-e", &script]).output().context("could not open the startup wiki chooser")?;
-    if !out.status.success() {
-        return Ok(None);
-    }
-    let selected = String::from_utf8_lossy(&out.stdout).trim().to_owned();
-    let (profile, login) = match selected.as_str() {
-        CONTINUE => (active_wiki_profile(&l.support)?, false),
-        LOGIN => {
-            let Some(profile) = choose_wiki_profile(l)? else { return Ok(None) };
-            (profile, true)
-        }
-        CREATE | IMPORT => {
-            let importing = selected == IMPORT;
-            let Some(name) = prompt_wiki_name(importing)? else { return Ok(None) };
-            let import = if importing {
-                let Some(zip) = pick_zip("Choose an ArchiveWiki backup to import", Some(backup_root()?))? else {
-                    return Ok(None);
-                };
-                Some(zip)
-            } else {
-                None
-            };
-            (create_wiki_profile(l, &name, import.as_deref())?, importing)
-        }
-        QUIT => return Ok(None),
-        _ => bail!("The startup chooser returned an unknown option."),
-    };
-    fs::write(l.support.join("active-wiki"), &profile.id).context("could not save the selected wiki")?;
-    Ok(Some((profile, login)))
-}
-
-fn relaunch_application() -> Result<()> {
+fn relaunch_application(open_selected: bool, login: bool) -> Result<()> {
     let executable = std::env::current_exe()?;
+    let mut args = Vec::new();
+    if open_selected {
+        args.push("--open-selected");
+    }
+    if login {
+        args.push("--login");
+    }
     if let Some(bundle) = executable.ancestors().find(|path| path.extension().is_some_and(|ext| ext == "app")) {
-        let status = Command::new("/usr/bin/open").args(["-n"]).arg(bundle).status()?;
+        let status = Command::new("/usr/bin/open").args(["-n"]).arg(bundle).arg("--args").args(args).status()?;
         if !status.success() {
             bail!("macOS could not reopen ArchiveWiki");
         }
     } else {
-        Command::new(executable).spawn()?;
+        Command::new(executable).args(args).spawn()?;
     }
     Ok(())
 }
@@ -4925,19 +4936,20 @@ fn confirm_wiki_switch(name: &str) -> Result<bool> {
     Ok(Command::new("osascript").args(["-e", &script]).status().context("could not confirm the wiki switch")?.success())
 }
 
-fn switch_profile(
+fn reopen_profile(
     l: &Layout,
     profile: &WikiProfile,
+    login: bool,
     port: u16,
     server: &mut Server,
     control_flow: &mut ControlFlow,
 ) -> Result<bool> {
-    if profile.id == l.profile_id || !confirm_wiki_switch(&profile.name)? {
+    if profile.id == l.profile_id {
         return Ok(false);
     }
     fs::write(l.support.join("active-wiki"), &profile.id)?;
     server.stop();
-    if let Err(launch_error) = relaunch_application() {
+    if let Err(launch_error) = relaunch_application(true, login) {
         let selection_error = fs::write(l.support.join("active-wiki"), &l.profile_id).err();
         match start_checked(l, port) {
             Ok(restored) => {
@@ -4964,6 +4976,19 @@ fn switch_profile(
     }
     *control_flow = ControlFlow::Exit;
     Ok(true)
+}
+
+fn switch_profile(
+    l: &Layout,
+    profile: &WikiProfile,
+    port: u16,
+    server: &mut Server,
+    control_flow: &mut ControlFlow,
+) -> Result<bool> {
+    if profile.id == l.profile_id || !confirm_wiki_switch(&profile.name)? {
+        return Ok(false);
+    }
+    reopen_profile(l, profile, false, port, server, control_flow)
 }
 
 fn dialog(msg: &str, icon: &str) {
@@ -5115,9 +5140,14 @@ fn build_menu(
 // ---------------------------------------------------------------- main
 
 fn run() -> Result<()> {
+    let args = std::env::args().skip(1).collect::<Vec<_>>();
+    let open_selected = args.iter().any(|arg| arg == "--open-selected");
+    let login = open_selected && args.iter().any(|arg| arg == "--login");
     let mut layout = Layout::discover()?;
-    let Some((profile, login)) = choose_startup_wiki(&layout)? else { return Ok(()) };
-    layout = layout.for_profile(&profile);
+    if open_selected {
+        let profile = active_wiki_profile(&layout.support)?;
+        layout = layout.for_profile(&profile);
+    }
     kill_stale(&layout.pidfile);
     sync_php(&layout.bundle_php, &layout.php)?;
     install_auth_helper(&layout);
@@ -5175,16 +5205,19 @@ fn run() -> Result<()> {
 
     let nav_origin = origin.clone();
     let popup_origin = origin.clone();
-    let initialization_script = format!(
-        "{}{}",
-        appearance_script(&appearance_mode(&layout)),
-        app_ui_script(&layout)
-    );
-    let webview = WebViewBuilder::new()
-        .with_url(if login { login_url(&layout, &origin) } else { start_url(&layout, &origin) })
+    let startup_page = !open_selected;
+    let initialization_script = if open_selected {
+        format!("{}{}", appearance_script(&appearance_mode(&layout)), app_ui_script(&layout))
+    } else {
+        String::new()
+    };
+    let webview_builder = WebViewBuilder::new()
         .with_initialization_script(&initialization_script)
         .with_navigation_handler(move |u: String| {
-            if let Some(path) = app_path(&nav_origin, &u) {
+            if let Some(action) = startup_action(&u, startup_page) {
+                let _ = action_proxy.send_event(UserEvent::StartupAction(action.to_owned()));
+                false
+            } else if let Some(path) = app_path(&nav_origin, &u) {
                 if let Some(action) = journal_action(path) {
                     let _ = action_proxy.send_event(action);
                     false
@@ -5212,7 +5245,13 @@ fn run() -> Result<()> {
             }
             true
         })
-        .with_devtools(cfg!(debug_assertions))
+        .with_devtools(cfg!(debug_assertions));
+    let webview_builder = if open_selected {
+        webview_builder.with_url(if login { login_url(&layout, &origin) } else { start_url(&layout, &origin) })
+    } else {
+        webview_builder.with_html(STARTUP_HTML)
+    };
+    let webview = webview_builder
         .build(&window)?;
 
     event_loop.run(move |event, _, control_flow| {
@@ -5245,6 +5284,47 @@ fn run() -> Result<()> {
                 server.stop();
                 *control_flow = ControlFlow::Exit;
             }
+            Event::UserEvent(UserEvent::StartupAction(action)) => match action.as_str() {
+                "continue" => {
+                    let _ = webview.load_url(&start_url(&layout, &origin));
+                }
+                "login" => choose_existing_wiki_flow(&layout, &update_proxy),
+                "create" => {
+                    if let Err(e) = create_wiki_flow(&layout, &update_proxy, false, true) {
+                        alert(&format!("The new wiki could not be started.\n\n{e:#}"));
+                    }
+                }
+                "import" => {
+                    if let Err(e) = create_wiki_flow(&layout, &update_proxy, true, true) {
+                        alert(&format!("The wiki import could not be started.\n\n{e:#}"));
+                    }
+                }
+                "quit" => {
+                    server.stop();
+                    *control_flow = ControlFlow::Exit;
+                }
+                _ => alert("That startup option isn't recognized. Please restart ArchiveWiki."),
+            },
+            Event::UserEvent(UserEvent::StartupProfileSelected(result)) => match result {
+                Ok(Some(profile)) if profile.id == layout.profile_id => {
+                    let _ = webview.load_url(&login_url(&layout, &origin));
+                }
+                Ok(Some(profile)) => {
+                    if let Err(e) = reopen_profile(&layout, &profile, true, port, &mut server, control_flow) {
+                        alert(&format!("The selected wiki could not be opened.\n\n{e:#}"));
+                    }
+                }
+                Ok(None) => {}
+                Err(e) => alert(&format!("The existing wiki list could not be opened.\n\n{e}")),
+            },
+            Event::UserEvent(UserEvent::StartupWikiCreated(result)) => match result {
+                Ok(profile) => {
+                    if let Err(e) = reopen_profile(&layout, &profile, false, port, &mut server, control_flow) {
+                        alert(&format!("The wiki was created, but ArchiveWiki couldn't open it.\n\n{e:#}"));
+                    }
+                }
+                Err(e) => alert(&format!("The wiki could not be created.\n\n{e}")),
+            },
             Event::UserEvent(UserEvent::ApplyUpdate { profile_id, staging, version }) => {
                 if profile_id != layout.profile_id {
                     alert("The wiki changed before this update could be applied. Check for updates again from the active wiki.");
@@ -5404,12 +5484,12 @@ fn run() -> Result<()> {
                 "print" => { let _ = webview.print(); }
                 "folder" => { let _ = Command::new("open").arg(&layout.wiki).spawn(); }
                 "newwiki" => {
-                    if let Err(e) = create_wiki_flow(&layout, &update_proxy, false) {
+                    if let Err(e) = create_wiki_flow(&layout, &update_proxy, false, false) {
                         alert(&format!("The new wiki could not be started.\n\n{e:#}"));
                     }
                 }
                 "importwiki" => {
-                    if let Err(e) = create_wiki_flow(&layout, &update_proxy, true) {
+                    if let Err(e) = create_wiki_flow(&layout, &update_proxy, true, false) {
                         alert(&format!("The wiki import could not be started.\n\n{e:#}"));
                     }
                 }
@@ -5561,7 +5641,7 @@ fn main() {
 mod tests {
     use super::{
         active_wiki_profile, app_path, initial_wiki_route, profile_session_name, recent_pages_storage_key,
-        release_asset_sha256_from_json, unique_path, validate_wiki_name, wiki_profiles,
+        release_asset_sha256_from_json, startup_action, unique_path, validate_wiki_name, wiki_profiles, STARTUP_HTML,
     };
 
     #[test]
@@ -5640,6 +5720,18 @@ mod tests {
         assert_eq!(initial_wiki_route(false, true), "/install.php");
         assert_eq!(initial_wiki_route(true, false), "/doku.php");
         assert_eq!(initial_wiki_route(true, true), "/doku.php?do=login");
+    }
+
+    #[test]
+    fn startup_screen_actions_are_recognized_without_accepting_other_custom_urls() {
+        assert_eq!(startup_action("archivewiki://startup/login", true), Some("login"));
+        assert_eq!(startup_action("archivewiki://startup/create", true), Some("create"));
+        assert_eq!(startup_action("archivewiki://startup/continue", true), Some("continue"));
+        assert_eq!(startup_action("archivewiki://startup/unknown", true), None);
+        assert_eq!(startup_action("https://example.com/", true), None);
+        assert_eq!(startup_action("archivewiki://startup/quit", false), None);
+        assert!(STARTUP_HTML.contains("Log in to an existing wiki"));
+        assert!(STARTUP_HTML.contains("Create a new wiki"));
     }
 
     #[test]
